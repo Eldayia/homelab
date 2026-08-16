@@ -25,6 +25,7 @@ et sont sauvegardés séparément avec Restic.
 - [Organisation du dépôt](#organisation-du-dépôt)
 - [Installation rapide](#installation-rapide)
 - [Référence des scripts](#référence-des-scripts)
+- [Monter un SSD USB](#monter-un-ssd-usb)
 - [Déployer et administrer les stacks](#déployer-et-administrer-les-stacks)
 - [Ajouter une stack](#ajouter-une-stack)
 - [Sauvegarde et restauration](#sauvegarde-et-restauration)
@@ -114,6 +115,8 @@ des chemins simples et de ne pas déplacer les données existantes.
 - un accès `sudo` et une clé SSH fonctionnelle ;
 - l’accès au dépôt privé GitHub ;
 - pour la sauvegarde, un partage QNAP joignable et un mot de passe Restic.
+- pour le stockage média, une partition existante sur le SSD USB ; ext4 est
+  recommandé.
 
 ### Nouvel hôte
 
@@ -122,7 +125,7 @@ git clone git@github.com:Eldayia/homelab.git ~/homelab
 cd ~/homelab
 
 # 1. Installer les paquets, Docker et la configuration système
-sudo ./scripts/install-host.sh
+sudo ./scripts/install-host.sh --configure-storage
 
 # 2. Prévisualiser puis appliquer le réseau statique
 sudo ./scripts/configure-network.sh
@@ -168,6 +171,7 @@ restauration dans `/`.
 |---|---|---|
 | `install-host.sh` | préparer complètement l’hôte | root / `sudo` |
 | `configure-network.sh` | définir le hostname et l’IPv4 statique | root / `sudo` |
+| `configure-storage.sh` | monter durablement un SSD USB déjà formaté | root / `sudo` |
 | `configure-backup.sh` | monter le QNAP et initialiser Restic | root / `sudo` |
 | `deploy.sh` | synchroniser et piloter les stacks | utilisateur Docker |
 | `backup.sh` | exécuter la sauvegarde Restic | root via systemd |
@@ -178,7 +182,7 @@ restauration dans `/`.
 ### `install-host.sh` — préparer l’hôte
 
 ```bash
-sudo ./scripts/install-host.sh [--activate-firewall] [--enable-backup]
+sudo ./scripts/install-host.sh [--activate-firewall] [--enable-backup] [--configure-storage]
 ```
 
 Le script :
@@ -195,6 +199,7 @@ Le script :
 |---|---|
 | `--activate-firewall` | active immédiatement `rpi-firewall.service` |
 | `--enable-backup` | active le timer Restic si le montage et le mot de passe existent déjà |
+| `--configure-storage` | lance l’assistant interactif de montage du SSD USB |
 | `HOMELAB_USER` | utilisateur configuré, `eldayia` par défaut |
 | `HOMELAB_ROOT` | racine des stacks, `/srv/docker` par défaut |
 | `ALLOW_UNSUPPORTED=1` | contourne le contrôle Debian 13 arm64 après vérification manuelle |
@@ -237,6 +242,61 @@ sudo -E ./scripts/configure-network.sh --apply
 
 > **Attention :** l’application peut interrompre la session SSH. Utiliser une
 > console locale ou garder une seconde session ouverte.
+
+### `configure-storage.sh` — monter un SSD USB
+
+L’assistant peut être lancé pendant l’installation avec
+`install-host.sh --configure-storage`, ou indépendamment :
+
+```bash
+sudo ./scripts/configure-storage.sh
+```
+
+Il affiche les disques et partitions détectés, puis demande la partition à
+monter. Après confirmation, il :
+
+- vérifie qu’il s’agit d’une partition et non du disque entier ;
+- refuse les partitions racine et de démarrage ;
+- refuse une partition sans système de fichiers ou sans UUID ;
+- refuse de masquer un point de montage contenant déjà des fichiers ;
+- ajoute une entrée par UUID à `/etc/fstab` ;
+- utilise `nofail` et une unité d’automontage systemd pour ne pas bloquer le
+  démarrage si le SSD est absent ;
+- monte le volume et vérifie que l’utilisateur peut y écrire ;
+- sauvegarde et valide `/etc/fstab` avant de conserver la modification.
+
+Exécution guidée recommandée :
+
+```bash
+sudo ./scripts/configure-storage.sh \
+  --device /dev/sda1 \
+  --mount-point /srv \
+  --owner eldayia
+```
+
+| Option ou variable | Valeur / usage |
+|---|---|
+| `--device`, `STORAGE_DEVICE` | partition à monter, par exemple `/dev/sda1` |
+| `--mount-point`, `STORAGE_MOUNT_POINT` | `/srv` pour tout le homelab ou `/srv/media` pour les médias seuls |
+| `--owner`, `STORAGE_OWNER` | utilisateur propriétaire du stockage |
+| `--yes` | applique sans question, après les mêmes contrôles de sécurité |
+
+Les formats pris en charge sont ext2/3/4, XFS, Btrfs et NTFS. **Ext4 est le
+choix recommandé** pour un SSD dédié au homelab. NTFS est utile si le disque
+doit aussi être lu sous Windows, mais offre un modèle de permissions moins
+adapté aux services Docker.
+
+Le profil `/srv` place sur le SSD toutes les données persistantes des Compose
+(`/srv/docker`) ainsi que les médias (`/srv/media`). Les images, couches et logs
+internes du moteur Docker restent dans `/var/lib/docker` sur le disque système.
+Pour placer également le système et le moteur Docker sur SSD, la solution la
+plus simple et la plus cohérente est de démarrer directement Raspberry Pi OS
+depuis le SSD.
+
+> **Aucune donnée n’est formatée ou repartitionnée par ce script.** Si le SSD
+> est vierge, l’assistant s’arrête. Vérifier alors le nom du disque avant toute
+> opération destructive et créer explicitement la partition en dehors du
+> script.
 
 ### `configure-backup.sh` — initialiser les sauvegardes
 
@@ -424,6 +484,28 @@ docker compose \
 ```bash
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 ```
+
+## Monter un SSD USB
+
+Pour un SSD possédant déjà une partition formatée :
+
+```bash
+# 1. Identifier précisément le disque et sa partition
+lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINTS,MODEL,TRAN
+
+# 2. Lancer l’assistant et choisir /srv pour tout le homelab
+sudo ./scripts/configure-storage.sh
+
+# 3. Vérifier le résultat
+findmnt /srv
+df -h /srv
+sudo -u eldayia touch /srv/media/.write-test
+rm /srv/media/.write-test
+```
+
+Ne jamais supposer que le SSD est toujours `/dev/sda` : ce nom peut changer
+selon l’ordre de détection des périphériques. C’est pourquoi la configuration
+persistante générée utilise l’UUID de la partition.
 
 ## Ajouter une stack
 

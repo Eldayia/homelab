@@ -59,4 +59,5 @@ systemctl --failed
 systemctl is-active docker rpi-firewall docker-restic-backup.timer
 docker ps --format '{{.Names}}|{{.Status}}'
 mountpoint /mnt/qnap-backups
+findmnt /srv
 ```

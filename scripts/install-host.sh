@@ -9,6 +9,7 @@ HOMELAB_USER="${HOMELAB_USER:-eldayia}"
 HOMELAB_ROOT="${HOMELAB_ROOT:-/srv/docker}"
 ACTIVATE_FIREWALL=0
 ENABLE_BACKUP=0
+CONFIGURE_STORAGE=0
 
 usage() {
   cat <<'EOF'
@@ -17,6 +18,7 @@ Usage: sudo ./scripts/install-host.sh [options]
 Options:
   --activate-firewall  Active immédiatement le pare-feu nftables.
   --enable-backup      Active le timer Restic (secrets et montage requis).
+  --configure-storage  Lance l'assistant de montage d'un stockage USB.
   -h, --help           Affiche cette aide.
 EOF
 }
@@ -25,6 +27,7 @@ while (($#)); do
   case "$1" in
     --activate-firewall) ACTIVATE_FIREWALL=1 ;;
     --enable-backup) ENABLE_BACKUP=1 ;;
+    --configure-storage) CONFIGURE_STORAGE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Option inconnue: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -80,6 +83,10 @@ EOF
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+
+if ((CONFIGURE_STORAGE)); then
+  "$REPO_ROOT/scripts/configure-storage.sh" --owner "$HOMELAB_USER"
 fi
 
 usermod -aG docker "$HOMELAB_USER"

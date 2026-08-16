@@ -26,6 +26,16 @@ et systemd. Il n'active pas le pare-feu ni le timer de sauvegarde par défaut.
 Reconnecte-toi avant la suite afin que l'appartenance au groupe `docker` et Zsh
 soient prises en compte.
 
+Si un SSD USB contient les médias ou d’autres données persistantes, monte-le
+avant de déployer les stacks qui en dépendent :
+
+```bash
+sudo ./scripts/configure-storage.sh
+findmnt /srv
+```
+
+L’assistant ne formate jamais le disque et refuse les partitions système.
+
 ## 3. Réseau statique
 
 Depuis une console locale, ou en gardant une deuxième session SSH ouverte :
@@ -124,6 +134,7 @@ mot de passe.
 sudo systemctl --failed
 sudo systemctl list-timers docker-restic-backup.timer
 sudo nft list table inet rpi_guard
+findmnt /srv
 ```
 
 Teste ensuite Pi-hole, les domaines HTTPS, WireGuard, les moniteurs Kuma et un
