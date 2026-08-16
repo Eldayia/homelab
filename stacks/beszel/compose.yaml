@@ -1,0 +1,49 @@
+services:
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      HUB_URL: https://monitor.eldayia.fr
+      TOKEN: ${BESZEL_TOKEN}
+      KEY: ${BESZEL_KEY}
+    volumes:
+      - ./agent-data:/var/lib/beszel-agent
+      - ./socket:/beszel_socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    environment:
+      APP_URL: https://monitor.daelyx.fr
+    volumes:
+      - ./data:/beszel_data
+      - ./socket:/beszel_socket
+    expose:
+      - "8090"
+    networks:
+      - proxy
+    healthcheck:
+      test:
+        - CMD
+        - /beszel
+        - health
+        - --url
+        - http://localhost:8090
+      interval: 120s
+      start_period: 10s
+      timeout: 5s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

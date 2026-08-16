@@ -1,0 +1,22 @@
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_ENABLE_ACTIONS: "false"
+      DOZZLE_LEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    expose:
+      - "8080"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

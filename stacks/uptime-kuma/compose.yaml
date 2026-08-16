@@ -1,0 +1,86 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+
+    dns:
+      - 192.168.1.240
+
+    volumes:
+      - ./data:/app/data
+
+    expose:
+      - "3001"
+
+    networks:
+      - proxy
+      - docker-monitor
+
+    security_opt:
+      - no-new-privileges:true
+
+    depends_on:
+      docker-socket-proxy:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001',r=>process.exit(r.statusCode < 500 ? 0 : 1)).on('error',()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2
+    container_name: docker-socket-proxy
+    restart: unless-stopped
+
+    environment:
+      CONTAINERS: "1"
+      INFO: "1"
+      EVENTS: "1"
+      PING: "1"
+      VERSION: "1"
+
+      POST: "0"
+      AUTH: "0"
+      SECRETS: "0"
+      SERVICES: "0"
+      TASKS: "0"
+      IMAGES: "0"
+      NETWORKS: "0"
+      VOLUMES: "0"
+      EXEC: "0"
+      BUILD: "0"
+
+      LOG_LEVEL: "warning"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - docker-monitor
+
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+    external: true
+    name: proxy
+
+  docker-monitor:
+    internal: true

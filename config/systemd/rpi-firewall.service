@@ -1,0 +1,16 @@
+[Unit]
+Description=Pare-feu hôte Raspberry Pi
+Before=docker.service
+Wants=network-pre.target
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/sbin/nft delete table inet rpi_guard
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/rpi-guard.nft
+ExecStop=-/usr/sbin/nft delete table inet rpi_guard
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

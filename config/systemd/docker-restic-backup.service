@@ -1,0 +1,14 @@
+[Unit]
+Description=Sauvegarde Docker chiffrée vers le QNAP
+RequiresMountsFor=/mnt/qnap-backups
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/docker/backup/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=infinity

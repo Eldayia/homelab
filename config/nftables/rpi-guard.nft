@@ -1,0 +1,33 @@
+table inet rpi_guard {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        ct state invalid drop
+        ct state established,related accept
+
+        iifname "lo" accept
+
+        # Réseau local
+        ip saddr 192.168.1.0/24 accept
+
+        # Réseau wg-easy
+        ip saddr 10.42.42.0/24 accept
+
+        # Réseaux Docker internes
+        ip saddr 172.16.0.0/12 accept
+
+        # ICMP IPv4 et IPv6
+        ip protocol icmp accept
+        meta l4proto ipv6-icmp accept
+
+        # DHCP IPv4 et IPv6
+        iifname "eth0" udp sport 67 udp dport 68 accept
+        iifname "eth0" udp sport 547 udp dport 546 accept
+
+        # Nginx Proxy Manager public
+        tcp dport { 80, 443 } accept
+
+        # WireGuard public
+        udp dport 51820 accept
+    }
+}

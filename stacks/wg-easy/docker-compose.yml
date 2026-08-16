@@ -1,0 +1,30 @@
+name: wg-easy
+
+services:
+  wg-easy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local/wg-easy-nft:15.2.2
+    container_name: wg-easy
+    restart: unless-stopped
+
+    environment:
+      TZ: Europe/Paris
+
+      # Autorise l’interface HTTP sur le réseau local.
+      # Ne jamais rediriger le port TCP 51821 depuis Internet.
+      INSECURE: "true"
+
+    network_mode: host
+
+    volumes:
+      - /srv/docker/wg-easy/config:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
+
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+    devices:
+      - /dev/net/tun:/dev/net/tun

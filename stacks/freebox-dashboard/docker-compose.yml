@@ -1,0 +1,35 @@
+name: freebox-dashboard
+
+services:
+  freebox-dashboard:
+    image: ghcr.io/hghugo/freeboxos-ultra-dashboard:latest
+    container_name: freebox-dashboard
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      FREEBOX_HOST: "${FREEBOX_HOST}"
+      FREEBOX_TOKEN_FILE: /app/data/freebox_token.json
+
+    ports:
+      - "${LAN_IP}:${DASHBOARD_PORT}:3000"
+
+    volumes:
+      - ./data:/app/data
+
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://127.0.0.1:3000/api/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

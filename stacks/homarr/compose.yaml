@@ -1,0 +1,32 @@
+services:
+  homarr:
+    image: ghcr.io/homarr-labs/homarr:latest
+    container_name: homarr
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+
+      PUID: ${PUID}
+      PGID: ${PGID}
+
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
+
+      BASE_URL: https://${HOMARR_DOMAIN}
+      NEXTAUTH_URL: https://${HOMARR_DOMAIN}
+
+      AUTH_PROVIDERS: credentials
+      AUTH_SESSION_EXPIRY_TIME: 7d
+      AUTH_COOKIE_PREFIX: homarr-daelyx
+    volumes:
+      - ./appdata:/appdata
+    expose:
+      - "7575"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy
