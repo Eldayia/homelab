@@ -317,6 +317,8 @@ interactivement le mot de passe Restic, puis :
 - remplace l’ancienne entrée utilisant le même point de montage après avoir
   sauvegardé `fstab` ;
 - vérifie que le partage est bien monté en NFS et accessible en écriture ;
+- valide le mot de passe sur un dépôt existant avant de remplacer le fichier
+  local ;
 - monte le partage et initialise le dépôt Restic si nécessaire ;
 - installe `backup.sh` sous `/srv/docker/backup/` ;
 - installe et active `docker-restic-backup.timer`.

@@ -29,8 +29,6 @@ read_secret() {
   printf -v "$variable_name" '%s' "$current_value"
 }
 
-read_secret RESTIC_PASSWORD "Nouveau mot de passe du dépôt Restic (ou mot de passe existant): "
-
 install -d -m 0700 /root/.config/restic "$MOUNT_POINT"
 
 command -v mount.nfs >/dev/null || {
@@ -48,9 +46,6 @@ case "$NFS_VERSION" in
   4|4.0|4.1|4.2) ;;
   *) echo "Version NFS non prise en charge: $NFS_VERSION" >&2; exit 1 ;;
 esac
-
-install -m 0600 /dev/null /root/.config/restic/rpi-password
-printf '%s\n' "$RESTIC_PASSWORD" >/root/.config/restic/rpi-password
 
 if [[ -n "${KUMA_PUSH_URL:-}" ]]; then
   install -m 0600 /dev/null /root/.config/restic/kuma-push-url
@@ -132,13 +127,51 @@ rm -f "$WRITE_TEST"
 rm -f /root/.smb-qnap-backup
 
 export RESTIC_REPOSITORY
-export RESTIC_PASSWORD_FILE=/root/.config/restic/rpi-password
+PERSISTENT_PASSWORD_FILE=/root/.config/restic/rpi-password
+PASSWORD_CANDIDATE_FILE="$(mktemp)"
+chmod 0600 "$PASSWORD_CANDIDATE_FILE"
+trap 'rm -f "$PASSWORD_CANDIDATE_FILE"' EXIT
+
+if [[ -n "${RESTIC_PASSWORD:-}" ]]; then
+  printf '%s\n' "$RESTIC_PASSWORD" >"$PASSWORD_CANDIDATE_FILE"
+elif [[ -s "$PERSISTENT_PASSWORD_FILE" ]]; then
+  cp "$PERSISTENT_PASSWORD_FILE" "$PASSWORD_CANDIDATE_FILE"
+else
+  read_secret RESTIC_PASSWORD "Mot de passe du dépôt Restic: "
+  printf '%s\n' "$RESTIC_PASSWORD" >"$PASSWORD_CANDIDATE_FILE"
+fi
+
+export RESTIC_PASSWORD_FILE="$PASSWORD_CANDIDATE_FILE"
 
 if [[ ! -f "$RESTIC_REPOSITORY/config" ]]; then
-  restic init
+  if ! restic init; then
+    echo "Impossible d'initialiser le dépôt Restic; le mot de passe local reste inchangé." >&2
+    exit 1
+  fi
 else
-  restic snapshots --latest 1
+  if ! restic snapshots --latest 1; then
+    [[ -t 0 ]] || {
+      echo "Impossible d'ouvrir le dépôt Restic avec le mot de passe disponible." >&2
+      echo "Le mot de passe local existant n'a pas été remplacé." >&2
+      exit 1
+    }
+
+    echo "Le mot de passe enregistré ou fourni n'ouvre pas ce dépôt." >&2
+    RESTIC_PASSWORD=""
+    read_secret RESTIC_PASSWORD "Mot de passe EXISTANT du dépôt Restic: "
+    printf '%s\n' "$RESTIC_PASSWORD" >"$PASSWORD_CANDIDATE_FILE"
+
+    if ! restic snapshots --latest 1; then
+      echo "Le dépôt reste inaccessible; aucun mot de passe local n'a été modifié." >&2
+      exit 1
+    fi
+  fi
 fi
+
+install -m 0600 "$PASSWORD_CANDIDATE_FILE" "$PERSISTENT_PASSWORD_FILE"
+export RESTIC_PASSWORD_FILE="$PERSISTENT_PASSWORD_FILE"
+rm -f "$PASSWORD_CANDIDATE_FILE"
+trap - EXIT
 
 install -d -m 0700 /srv/docker/backup/dumps
 install -m 0700 "$REPO_ROOT/scripts/backup.sh" /srv/docker/backup/backup.sh

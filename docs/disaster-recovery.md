@@ -83,7 +83,8 @@ fixe du Raspberry Pi en lecture/écriture. Le script demande sans l’afficher :
 - le mot de passe du dépôt Restic.
 
 Il crée `/root/.config/restic/rpi-password` en mode `600`, ajoute le montage
-NFSv4.1, vérifie son accès en écriture et active le timer quotidien.
+NFSv4.1, vérifie son accès en écriture et valide le mot de passe sur le dépôt
+existant avant de l’enregistrer. Il active ensuite le timer quotidien.
 
 Contrôles :
 
