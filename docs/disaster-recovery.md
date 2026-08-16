@@ -74,7 +74,7 @@ sudo nft delete table inet rpi_guard
 ## 5. Monter le QNAP et ouvrir Restic
 
 ```bash
-sudo QNAP_EXPORT=/RaspberryBackups ./scripts/configure-backup.sh
+sudo QNAP_EXPORT=/share/RaspberryBackups ./scripts/configure-backup.sh
 ```
 
 Le QNAP doit au préalable exposer le dossier en NFS et autoriser l’adresse IP
