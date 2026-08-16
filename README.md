@@ -1,95 +1,506 @@
-# Docker Homelab
+# 🏠 Docker Homelab
 
-Ce dépôt est la source de vérité pour **installer, initialiser, configurer,
-déployer et reconstruire** un homelab Docker. L’hôte actuel est un Raspberry Pi
-4 sous Debian/Raspberry Pi OS arm64, mais l’organisation sépare volontairement
-la configuration de l’hôte des stacks afin de pouvoir évoluer vers une autre
-machine ou architecture.
+> Installation, configuration, déploiement et reconstruction reproductible d’un
+> homelab Docker.
 
-## Organisation
+![Plateforme](https://img.shields.io/badge/plateforme-Raspberry%20Pi%204-c51a4a)
+![Architecture](https://img.shields.io/badge/architecture-arm64-0091bd)
+![Système](https://img.shields.io/badge/système-Debian%2013-a80030)
+![Orchestration](https://img.shields.io/badge/orchestration-Docker%20Compose-2496ed)
 
-```text
-config/                 configuration système (réseau, SSH, nftables, systemd)
-docs/                   architecture, exploitation et reprise après sinistre
-inventory/              paquets et manifeste des stacks déployables
-scripts/                installation, déploiement, sauvegarde et vérification
-stacks/
-├── infrastructure/     DNS, reverse proxy, VPN et portail
-└── monitoring/         supervision, logs et administration Docker
+Ce dépôt est la **source de vérité** du homelab : il contient tout ce qui est
+nécessaire pour préparer l’hôte, déployer les services et reconstruire la
+machine après une panne. L’installation actuellement validée tourne sur un
+Raspberry Pi 4 sous Debian/Raspberry Pi OS 13 arm64, mais la configuration est
+organisée pour faciliter une future migration vers un autre matériel.
+
+Les fichiers Compose et les modèles de configuration sont versionnés. Les
+secrets, données applicatives et bibliothèques multimédias restent hors de Git
+et sont sauvegardés séparément avec Restic.
+
+## Sommaire
+
+- [Vue d’ensemble](#vue-densemble)
+- [Services](#services)
+- [Organisation du dépôt](#organisation-du-dépôt)
+- [Installation rapide](#installation-rapide)
+- [Référence des scripts](#référence-des-scripts)
+- [Déployer et administrer les stacks](#déployer-et-administrer-les-stacks)
+- [Ajouter une stack](#ajouter-une-stack)
+- [Sauvegarde et restauration](#sauvegarde-et-restauration)
+- [Sécurité et portabilité](#sécurité-et-portabilité)
+- [Documentation](#documentation)
+
+## Vue d’ensemble
+
+```mermaid
+flowchart LR
+  Git["Dépôt Git"] --> Host["Configuration de l’hôte"]
+  Git --> Compose["Stacks Docker Compose"]
+  Host --> Docker["Docker Engine"]
+  Compose --> Docker
+  Docker --> Data["/srv/docker"]
+  Data --> Restic["Sauvegarde Restic"]
+  Restic --> NAS["QNAP / stockage externe"]
 ```
 
-Une catégorie `media-stack` sera ajoutée après intégration du Compose fourni
-séparément.
-
-### Stacks Docker
-
-| Partie | Services actuels |
+| Élément | Valeur actuelle |
 |---|---|
-| Infrastructure | Pi-hole, Nginx Proxy Manager, wg-easy, Homarr |
-| Monitoring | Uptime Kuma, Portainer, Beszel, Dozzle, Freebox Dashboard |
-| Media stack | Prévue : Prowlarr, Sonarr, Radarr, à partir du Compose fourni séparément |
+| Hôte validé | Raspberry Pi 4, arm64 |
+| Système | Debian/Raspberry Pi OS 13 |
+| Racine Docker | `/srv/docker` |
+| Réseau partagé | `proxy` |
+| Sauvegarde | Restic vers un partage QNAP chiffré |
+| Fuseau horaire | `Europe/Paris` |
 
-Les fichiers Compose et leurs modèles de variables sont versionnés. Les
-données persistantes, bibliothèques multimédias et secrets restent hors de Git.
+## Services
 
-## Démarrage rapide
+### Infrastructure
 
-Sur l’hôte actuellement supporté et fraîchement installé :
+| Service | Rôle |
+|---|---|
+| **Pi-hole** | DNS local et filtrage réseau |
+| **Nginx Proxy Manager** | reverse proxy et certificats TLS |
+| **wg-easy** | accès distant WireGuard |
+| **Homarr** | portail d’accès aux services |
+
+### Monitoring
+
+| Service | Rôle |
+|---|---|
+| **Uptime Kuma** | disponibilité et alertes |
+| **Portainer** | administration de Docker |
+| **Beszel** | métriques de l’hôte et des conteneurs |
+| **Dozzle** | consultation des logs Docker |
+| **Freebox Dashboard** | supervision de la Freebox |
+
+### Media stack
+
+La media stack n’est pas encore intégrée. Elle sera ajoutée à partir d’un
+Compose dédié comprenant notamment Prowlarr, Sonarr et Radarr.
+
+## Organisation du dépôt
+
+```text
+homelab/
+├── config/                     configuration de l’hôte
+│   ├── apt/                    dépôts APT Debian, Docker et Raspberry Pi
+│   ├── nftables/               pare-feu de l’hôte actuel
+│   ├── ssh/                    authentification et durcissement SSH
+│   └── systemd/                sauvegarde Restic et pare-feu
+├── docs/                       procédures détaillées
+├── dotfiles/                   environnement utilisateur
+├── inventory/
+│   ├── apt-packages.txt        paquets installés sur l’hôte
+│   └── stacks.manifest         catalogue utilisé par deploy.sh
+├── scripts/                    installation et opérations
+└── stacks/
+    ├── infrastructure/         DNS, proxy, VPN et portail
+    └── monitoring/             supervision et administration
+```
+
+Le classement par catégorie existe uniquement dans Git. Au déploiement, chaque
+stack est synchronisée dans `/srv/docker/<nom-de-la-stack>` afin de conserver
+des chemins simples et de ne pas déplacer les données existantes.
+
+## Installation rapide
+
+### Prérequis
+
+- un Raspberry Pi 4 ou un hôte compatible fraîchement installé ;
+- Debian/Raspberry Pi OS 13 arm64 pour le parcours officiellement validé ;
+- l’utilisateur `eldayia` présent sur l’hôte, sauf surcharge avec
+  `HOMELAB_USER` ;
+- un accès `sudo` et une clé SSH fonctionnelle ;
+- l’accès au dépôt privé GitHub ;
+- pour la sauvegarde, un partage QNAP joignable et un mot de passe Restic.
+
+### Nouvel hôte
 
 ```bash
-git clone git@github.com:Eldayia/raspberrypi-homelab.git ~/homelab
+git clone git@github.com:Eldayia/homelab.git ~/homelab
 cd ~/homelab
 
+# 1. Installer les paquets, Docker et la configuration système
 sudo ./scripts/install-host.sh
+
+# 2. Prévisualiser puis appliquer le réseau statique
+sudo ./scripts/configure-network.sh
 sudo ./scripts/configure-network.sh --apply
+
+# 3. Configurer le stockage et la sauvegarde Restic
 sudo ./scripts/configure-backup.sh
 
+# 4. Lister puis déployer les services
 ./scripts/deploy.sh list
 ./scripts/deploy.sh up infrastructure
 ./scripts/deploy.sh up monitoring
+
+# 5. Contrôler le dépôt et les Compose
 ./scripts/verify.sh
 ```
 
-Avant le premier démarrage, compléter les `.env` créés dans
-`/srv/docker/<stack>`. Sur un hôte à reconstruire, restaurer les données avant
-de lancer les conteneurs : voir
-[la procédure de reprise](docs/disaster-recovery.md).
+Après `install-host.sh`, se reconnecter pour prendre en compte le groupe
+`docker` et le shell Zsh. Avant tout `deploy.sh up`, remplacer les valeurs
+`CHANGE_ME` dans les fichiers `/srv/docker/<stack>/.env`.
 
-## Déploiement
+### Reconstruction après incident
 
-Le script accepte aussi bien une catégorie qu’un nom de stack :
+Sur un hôte de remplacement, restaurer les données **avant** de démarrer les
+stacks :
 
 ```bash
-./scripts/deploy.sh list
-./scripts/deploy.sh sync infrastructure
-./scripts/deploy.sh up pihole uptime-kuma
-./scripts/deploy.sh status --all
+sudo ./scripts/install-host.sh
+sudo ./scripts/configure-network.sh --apply
+sudo ./scripts/configure-backup.sh
+sudo ./scripts/restore-data.sh --snapshot latest --confirm
+./scripts/deploy.sh up --all
+./scripts/verify.sh
 ```
 
-Le classement du dépôt ne modifie pas les chemins d’exécution : une stack reste
-synchronisée dans `/srv/docker/<nom>`. Il est possible de changer cette racine
-avec `HOMELAB_ROOT`.
+Lire impérativement la
+[procédure de reprise après sinistre](docs/disaster-recovery.md) avant une
+restauration dans `/`.
 
-## Portabilité
+## Référence des scripts
 
-- plateforme validée : Raspberry Pi 4, Debian/Raspberry Pi OS 13, arm64 ;
-- les images ajoutées doivent être multi-architecture ;
-- adresses IP, UID/GID, fuseau horaire et chemins médias sont configurables par
-  variables d’environnement ;
-- les éléments spécifiques au Pi sont isolés dans `config/apt/raspi.sources` et
-  documentés comme tels.
+| Script | Usage principal | Privilèges |
+|---|---|---|
+| `install-host.sh` | préparer complètement l’hôte | root / `sudo` |
+| `configure-network.sh` | définir le hostname et l’IPv4 statique | root / `sudo` |
+| `configure-backup.sh` | monter le QNAP et initialiser Restic | root / `sudo` |
+| `deploy.sh` | synchroniser et piloter les stacks | utilisateur Docker |
+| `backup.sh` | exécuter la sauvegarde Restic | root via systemd |
+| `restore-data.sh` | restaurer `/srv/docker` | root / `sudo` |
+| `check-secrets.sh` | détecter des secrets accidentellement présents | utilisateur |
+| `verify.sh` | valider scripts, secrets et Compose | utilisateur |
 
-Une migration d’hôte doit commencer par la validation de
-`scripts/install-host.sh`, du pare-feu, des montages et de la compatibilité des
-images. Les détails sont dans [l’architecture](docs/architecture.md).
+### `install-host.sh` — préparer l’hôte
 
-## Secrets et sauvegardes
+```bash
+sudo ./scripts/install-host.sh [--activate-firewall] [--enable-backup]
+```
 
-Ne jamais versionner de `.env`, clé privée, certificat privé ou donnée
-applicative. Les fichiers `.env.example` ne contiennent que des valeurs factices
-ou des paramètres non sensibles. `scripts/check-secrets.sh` et
-`scripts/verify.sh` doivent être lancés avant chaque commit.
+Le script :
 
-Les données sous `/srv/docker` sont sauvegardées avec Restic vers le stockage
-externe configuré. Voir [la gestion des secrets](docs/secrets.md) et
-[l’exploitation courante](docs/operations.md).
+1. vérifie Debian 13 arm64 ;
+2. installe les paquets de `inventory/apt-packages.txt` ;
+3. installe Docker Engine et le plugin Compose si nécessaire ;
+4. configure les dotfiles, Zsh, SSH, nftables et les unités systemd ;
+5. ajoute l’utilisateur au groupe `docker` ;
+6. prépare `/srv/docker` et crée le réseau Docker externe `proxy` ;
+7. active Docker, SSH et Cockpit.
+
+| Option ou variable | Effet |
+|---|---|
+| `--activate-firewall` | active immédiatement `rpi-firewall.service` |
+| `--enable-backup` | active le timer Restic si le montage et le mot de passe existent déjà |
+| `HOMELAB_USER` | utilisateur configuré, `eldayia` par défaut |
+| `HOMELAB_ROOT` | racine des stacks, `/srv/docker` par défaut |
+| `ALLOW_UNSUPPORTED=1` | contourne le contrôle Debian 13 arm64 après vérification manuelle |
+
+> **Attention :** n’activer le pare-feu qu’en conservant une deuxième session
+> SSH ouverte. `ALLOW_UNSUPPORTED=1` ne rend pas automatiquement le dépôt
+> compatible avec un autre OS ou une autre architecture.
+
+### `configure-network.sh` — configurer le réseau
+
+```bash
+# Prévisualisation sans modification
+sudo ./scripts/configure-network.sh
+
+# Application effective
+sudo ./scripts/configure-network.sh --apply
+```
+
+Sans `--apply`, le script affiche uniquement la configuration prévue. Avec
+`--apply`, il configure le hostname, le fuseau horaire, la locale, le clavier et
+la connexion NetworkManager, puis réactive celle-ci.
+
+| Variable | Valeur par défaut |
+|---|---|
+| `NM_CONNECTION` | `netplan-eth0` |
+| `HOST_NAME` | `rpi4` |
+| `LAN_ADDRESS` | `192.168.1.240/24` |
+| `LAN_GATEWAY` | `192.168.1.1` |
+| `LAN_DNS_SERVERS` | `192.168.1.240,194.242.2.5,1.1.1.1` |
+
+Exemple avec le modèle versionné :
+
+```bash
+set -a
+source config/network.env.example
+set +a
+sudo -E ./scripts/configure-network.sh
+sudo -E ./scripts/configure-network.sh --apply
+```
+
+> **Attention :** l’application peut interrompre la session SSH. Utiliser une
+> console locale ou garder une seconde session ouverte.
+
+### `configure-backup.sh` — initialiser les sauvegardes
+
+```bash
+sudo QNAP_USER=rpi-backup ./scripts/configure-backup.sh
+```
+
+Le script demande interactivement les mots de passe QNAP et Restic, puis :
+
+- crée les fichiers de secrets root en mode `600` ;
+- ajoute le montage CIFS à `/etc/fstab` s’il n’existe pas ;
+- monte le partage et initialise le dépôt Restic si nécessaire ;
+- installe `backup.sh` sous `/srv/docker/backup/` ;
+- installe et active `docker-restic-backup.timer`.
+
+| Variable | Valeur par défaut / usage |
+|---|---|
+| `QNAP_HOST` | `192.168.1.250` |
+| `QNAP_SHARE` | `RaspberryBackups` |
+| `QNAP_USER` | `rpi-backup` |
+| `MOUNT_POINT` | `/mnt/qnap-backups` |
+| `RESTIC_REPOSITORY` | `<montage>/restic-rpi` |
+| `QNAP_PASSWORD` | évite la saisie interactive ; ne pas stocker dans Git |
+| `RESTIC_PASSWORD` | évite la saisie interactive ; ne pas stocker dans Git |
+| `KUMA_PUSH_URL` | URL Push facultative pour notifier Uptime Kuma |
+
+Contrôle après configuration :
+
+```bash
+mountpoint /mnt/qnap-backups
+systemctl list-timers docker-restic-backup.timer
+sudo systemctl start docker-restic-backup.service
+sudo journalctl -u docker-restic-backup.service -n 100 --no-pager
+```
+
+### `deploy.sh` — piloter les stacks
+
+```bash
+./scripts/deploy.sh ACTION [--all | CATÉGORIE | STACK...]
+```
+
+Une sélection peut être un nom de stack (`pihole`), une catégorie entière
+(`infrastructure`) ou toutes les stacks actives (`--all`).
+
+| Action | Comportement |
+|---|---|
+| `list` | affiche catégorie, nom et état de chaque stack du manifeste |
+| `sync` | copie les fichiers vers `/srv/docker/<stack>` sans démarrer Docker |
+| `up` | synchronise, valide puis lance avec `docker compose up -d --build` |
+| `pull` | télécharge les images sans recréer les conteneurs |
+| `status` | affiche `docker compose ps` pour la sélection |
+
+Exemples :
+
+```bash
+# Voir ce qui est disponible
+./scripts/deploy.sh list
+
+# Préparer toute l’infrastructure sans la démarrer
+./scripts/deploy.sh sync infrastructure
+
+# Déployer deux stacks précises
+./scripts/deploy.sh up pihole uptime-kuma
+
+# Mettre à jour puis recréer le monitoring
+./scripts/deploy.sh pull monitoring
+./scripts/deploy.sh up monitoring
+
+# Voir l’état de toutes les stacks actives
+./scripts/deploy.sh status --all
+
+# Utiliser une autre racine de déploiement
+HOMELAB_ROOT=/srv/homelab ./scripts/deploy.sh sync --all
+```
+
+Lors du premier `sync`, un `.env.example` devient un `.env` local en mode `600`.
+Un `.env` existant n’est jamais écrasé. L’action `up` refuse de démarrer si un
+placeholder `CHANGE_ME` obligatoire est encore présent. Le réseau Docker
+`proxy` est créé automatiquement pour toutes les actions sauf `status`.
+
+### `backup.sh` — sauvegarder les données Docker
+
+Ce script est normalement lancé par systemd, pas directement :
+
+```bash
+sudo systemctl start docker-restic-backup.service
+sudo journalctl -u docker-restic-backup.service -f
+```
+
+Il vérifie le montage et le dépôt Restic, verrouille l’exécution pour éviter deux
+sauvegardes simultanées, met temporairement en pause tous les conteneurs, puis
+sauvegarde `/srv/docker`. Les conteneurs sont repris même si le script échoue.
+
+La rétention conserve 7 sauvegardes quotidiennes, 5 hebdomadaires, 12
+mensuelles et 3 annuelles. Le dimanche, un `prune` et un contrôle de 10 % des
+données sont effectués ; les autres jours, seule la structure est vérifiée. Si
+une URL Push Kuma a été configurée, le résultat est envoyé à Uptime Kuma.
+
+> **Impact :** les conteneurs sont brièvement mis en pause. Le script échoue
+> volontairement si aucun conteneur n’est actif.
+
+### `restore-data.sh` — restaurer `/srv/docker`
+
+```bash
+sudo ./scripts/restore-data.sh [options] --confirm
+```
+
+| Option | Effet |
+|---|---|
+| `--snapshot ID` | restaure un snapshot précis ; `latest` par défaut |
+| `--target PATH` | racine de destination ; `/` par défaut |
+| `--confirm` | confirmation obligatoire avant toute écriture |
+| `--allow-running-containers` | autorise explicitement une restauration pendant que Docker tourne |
+
+Restauration réelle :
+
+```bash
+sudo ./scripts/restore-data.sh --snapshot latest --confirm
+```
+
+Inspection prudente dans un répertoire séparé :
+
+```bash
+sudo ./scripts/restore-data.sh \
+  --snapshot latest \
+  --target /srv/restic-inspection \
+  --confirm
+```
+
+Par défaut, le script refuse de continuer si des conteneurs tournent, vérifie
+le dépôt Restic, puis restaure uniquement `/srv/docker`.
+
+### `check-secrets.sh` — contrôler les fichiers sensibles
+
+```bash
+./scripts/check-secrets.sh
+```
+
+Le script refuse notamment les `.env`, `secrets.json`, clés privées et certains
+certificats dans le dépôt. Il recherche également plusieurs formats connus de
+jetons GitHub, Slack et AWS. Ce contrôle réduit le risque d’erreur, mais ne
+remplace ni une revue du diff ni un gestionnaire de secrets.
+
+### `verify.sh` — valider le dépôt
+
+```bash
+./scripts/verify.sh
+```
+
+La validation exécute successivement :
+
+1. la recherche de secrets ;
+2. `bash -n` sur tous les scripts ;
+3. ShellCheck lorsqu’il est installé ;
+4. `docker compose config --quiet` sur chaque entrée du manifeste.
+
+Les exemples `.env.example` et `secrets.json.example` sont copiés dans un
+répertoire temporaire pour valider les Compose sans toucher aux déploiements.
+Si ShellCheck ou Docker Compose est absent, le contrôle correspondant est
+signalé puis ignoré.
+
+## Déployer et administrer les stacks
+
+### Cycle de mise à jour recommandé
+
+```bash
+git pull --ff-only
+./scripts/verify.sh
+./scripts/deploy.sh pull nom-de-la-stack
+./scripts/deploy.sh up nom-de-la-stack
+./scripts/deploy.sh status nom-de-la-stack
+```
+
+### Consulter les logs
+
+```bash
+docker compose \
+  --project-directory /srv/docker/uptime-kuma \
+  --file /srv/docker/uptime-kuma/compose.yaml \
+  logs --tail=100 --follow
+```
+
+### Afficher tous les conteneurs
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+```
+
+## Ajouter une stack
+
+1. créer `stacks/<catégorie>/<nom>/` ;
+2. ajouter le ou les fichiers Compose ;
+3. ajouter un `.env.example` sans secret réel si des variables sont requises ;
+4. utiliser des chemins relatifs pour les données persistantes ;
+5. préférer des images multi-architecture et des versions explicites ;
+6. raccorder l’interface web au réseau externe `proxy` si elle passe par NPM ;
+7. ajouter l’entrée à `inventory/stacks.manifest` ;
+8. lancer `./scripts/verify.sh` avant le déploiement.
+
+Format du manifeste :
+
+```text
+catégorie|nom|état|fichiers-compose|dépôt-source|révision
+```
+
+Exemple :
+
+```text
+monitoring|uptime-kuma|active|compose.yaml||
+```
+
+## Sauvegarde et restauration
+
+| Élément | Emplacement |
+|---|---|
+| Données et configurations Docker | `/srv/docker` |
+| Identifiants CIFS | `/root/.smb-qnap-backup` |
+| Mot de passe Restic | `/root/.config/restic/rpi-password` |
+| URL Push Uptime Kuma | `/root/.config/restic/kuma-push-url` |
+| Dépôt Restic actuel | `/mnt/qnap-backups/restic-rpi` |
+| Planification | tous les jours à 04:30, délai aléatoire maximal de 15 min |
+
+Le dépôt Git seul ne suffit pas à reconstruire les applications : leur état,
+leurs certificats et leurs secrets sont restaurés depuis Restic.
+
+## Sécurité et portabilité
+
+### Règles de sécurité
+
+- ne jamais versionner de `.env`, secret, clé privée ou donnée applicative ;
+- conserver NPM 81, Portainer 9443, Pi-hole 8085, wg-easy 51821, Cockpit 9090
+  et SSH hors des redirections publiques ;
+- vérifier le pare-feu depuis une seconde session SSH avant de fermer la
+  première ;
+- ne jamais partager la sortie de `docker compose config`, qui peut contenir
+  les valeurs interpolées des secrets ;
+- lancer `./scripts/verify.sh` avant chaque commit.
+
+### Migrer vers un autre hôte
+
+Avant de quitter le Raspberry Pi 4 ou arm64 :
+
+1. vérifier la compatibilité des images Docker avec la nouvelle architecture ;
+2. adapter `install-host.sh` et les dépôts APT au système cible ;
+3. adapter le nom de l’interface, les adresses réseau et nftables ;
+4. vérifier les chemins et options de montage du stockage ;
+5. restaurer dans un emplacement temporaire avant d’écrire dans `/` ;
+6. valider chaque Compose avant le premier démarrage.
+
+Les composants encore spécifiques au Pi sont isolés dans
+`config/apt/raspi.sources`, `config/nftables/rpi-guard.nft` et
+`config/systemd/rpi-firewall.service`.
+
+## Documentation
+
+| Document | Contenu |
+|---|---|
+| [Architecture](docs/architecture.md) | réseau, responsabilités et portabilité |
+| [Services](docs/services.md) | catalogue et exposition des services |
+| [Exploitation](docs/operations.md) | opérations, mises à jour et contrôles |
+| [Secrets](docs/secrets.md) | règles et emplacements sensibles |
+| [Reprise après sinistre](docs/disaster-recovery.md) | reconstruction complète d’un hôte |
+
+---
+
+Ce dépôt privilégie une reconstruction explicite et vérifiable : **Git décrit
+l’infrastructure, Restic conserve l’état, et les scripts relient les deux.**
