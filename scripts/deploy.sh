@@ -138,6 +138,10 @@ sync_stack() {
     install -m 0600 "$source/secrets.json.example" "$target/secrets.json"
     echo "À compléter avant démarrage: $target/secrets.json"
   fi
+  if [[ -f "$source/slskd.yml.example" && ! -f "$target/slskd.yml" ]]; then
+    install -m 0600 "$source/slskd.yml.example" "$target/slskd.yml"
+    echo "À compléter avant démarrage: $target/slskd.yml"
+  fi
 }
 
 assert_mounts_ready() {
@@ -245,7 +249,7 @@ ensure_dependencies() {
 assert_secrets_ready() {
   local target="$1"
   local file
-  for file in "$target/.env" "$target/secrets.json"; do
+  for file in "$target/.env" "$target/secrets.json" "$target/slskd.yml"; do
     [[ -f "$file" ]] || continue
     if grep -v 'CHANGE_ME_OPTIONAL' "$file" | grep -q 'CHANGE_ME'; then
       echo "Placeholder non remplacé dans $file" >&2

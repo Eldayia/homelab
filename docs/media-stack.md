@@ -109,11 +109,20 @@ peut pas déterminer à lui seul qu’un paquet est terminé.
 
 ### slskd
 
-Les chemins sont fournis directement par l’environnement :
+Au premier `sync` ou `up`, le modèle `slskd.yml.example` est copié vers le
+fichier local privé `/srv/docker/download/slskd/slskd.yml`. Remplacer tous les
+`CHANGE_ME` dans ce fichier avant de démarrer la stack. Le fichier réel est
+ignoré par Git et n’est jamais écrasé par les déploiements suivants.
+
+Les chemins configurés sont :
 
 - incomplets : `/data/incomplete` ;
 - terminés : `/data/downloads` ;
 - partage en lecture seule : `/shares/multimedia`.
+
+Le premier chemin correspond au SSD `/srv/media/downloads/slskd`, tandis que
+les deux autres correspondent aux partages NFS QNAP. Les anciens chemins
+`/downloads/complete` et `/downloads/incomplete` ne doivent plus être utilisés.
 
 ### Bibliothèques finales
 

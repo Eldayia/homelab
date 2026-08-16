@@ -3,6 +3,8 @@
 !**/.env.example
 **/secrets.json
 !**/secrets.json.example
+**/slskd.yml
+!**/slskd.yml.example
 *.pem
 *.key
 

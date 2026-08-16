@@ -1,0 +1,135 @@
+# Configuration slskd pour le Raspberry Pi 4
+
+debug: false
+headless: false
+remote_configuration: true
+remote_file_management: false
+instance_name: rpi4-soulseek
+
+flags:
+  no_connect: false
+  no_share_scan: false
+  force_share_scan: false
+  no_version_check: false
+
+directories:
+  # Téléchargements terminés sur le partage NFS QNAP Download/slskd.
+  downloads: /data/downloads
+
+  # Fichiers en cours sur le SSD local du Raspberry Pi.
+  incomplete: /data/incomplete
+
+shares:
+  directories:
+    - "[Multimedia]/shares/multimedia"
+    - "!/shares/multimedia/@Recently-Snapshot"
+    - "!/shares/multimedia/@Recycle"
+
+    # Ne partage que les téléchargements Soulseek terminés sur le NAS.
+    - "[Téléchargements Soulseek]/data/downloads"
+
+  filters:
+    - '\.ini$'
+    - 'Thumbs\.db$'
+    - '\.DS_Store$'
+    - '\.part$'
+    - '\.tmp$'
+
+  cache:
+    storage_mode: disk
+    workers: 4
+    retention: 1440
+
+transfers:
+  upload:
+    slots: 5
+    speed_limit: 5120
+
+    limits:
+      queued:
+        files: 500
+        megabytes: 50000
+
+  download:
+    slots: 50
+    speed_limit: 51200
+
+    retry:
+      partial: resume
+      attempts: 5
+      delay: 5000
+      max_delay: 60000
+
+    destination:
+      subdirectory: ${SOURCE_DIRECTORY}
+      exists: rename
+
+web:
+  port: 5030
+  ip_address: 0.0.0.0
+
+  https:
+    disabled: true
+
+  url_base: /
+  logging: false
+
+  authentication:
+    disabled: false
+    username: eldayia
+    password: "CHANGE_ME_WEB_PASSWORD"
+
+    api_keys:
+      homarr:
+        key: "CHANGE_ME_HOMARR_API_KEY_16_CHARS_MINIMUM"
+        role: administrator
+        cidr: 0.0.0.0/0,::/0
+
+soulseek:
+  address: vps.slsknet.org
+  port: 2271
+
+  username: "CHANGE_ME_SOULSEEK_USERNAME"
+  password: "CHANGE_ME_SOULSEEK_PASSWORD"
+
+  description: "EldaRPI4"
+  listen_ip_address: 0.0.0.0
+  listen_port: 50300
+  diagnostic_level: Info
+
+  distributed_network:
+    disabled: false
+    disable_children: false
+    child_limit: 25
+
+retention:
+  search: 10080
+
+  transfers:
+    upload:
+      succeeded: 1440
+      errored: 180
+      cancelled: 30
+      failed: 1440
+
+    download:
+      succeeded: 1440
+      errored: 20160
+      cancelled: 30
+      failed: 20160
+
+  files:
+    complete: 20160
+    incomplete: 43200
+
+  logs: 30
+
+logger:
+  disk: true
+  no_color: false
+
+metrics:
+  enabled: false
+
+feature:
+  swagger: false
