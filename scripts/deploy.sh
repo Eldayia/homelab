@@ -264,10 +264,6 @@ while IFS='|' read -r category name state files repository revision dependencies
   is_requested "$category" "$name" || continue
   ((FOUND += 1))
 
-  if ((ALL)) && [[ "$state" != "active" ]]; then
-    continue
-  fi
-
   target="$HOMELAB_ROOT/$category/$name"
   if [[ "$ACTION" == "sync" || "$ACTION" == "up" ]]; then
     sync_stack "$category" "$name" "$repository" "$revision"

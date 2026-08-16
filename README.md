@@ -86,9 +86,9 @@ La media stack est préparée sous forme de projets Compose indépendants :
 | indexation et automatisation | Prowlarr, FlareSolverr, Radarr, Sonarr, Lidarr |
 | enrichissement et demandes | Bazarr, LazyLibrarian, Seerr, tinyMediaManager |
 
-Les stacks sont initialement marquées `inactive` dans le manifeste : elles ne
-sont pas incluses par `--all`, mais restent déployables explicitement après
-configuration de leurs `.env`. Voir [la procédure media-stack](docs/media-stack.md).
+Toutes ces stacks sont incluses par `deploy.sh up --all`. Le déploiement refuse
+de poursuivre tant que leurs `.env`, montages SSD/NFS et secrets obligatoires
+ne sont pas prêts. Voir [la procédure media-stack](docs/media-stack.md).
 
 ## Organisation du dépôt
 
@@ -433,7 +433,7 @@ sudo journalctl -u docker-restic-backup.service -n 100 --no-pager
 ```
 
 Une sélection peut être un nom de stack (`pihole`), une catégorie entière
-(`infrastructure`) ou toutes les stacks actives (`--all`).
+(`infrastructure`) ou absolument toutes les stacks du manifeste (`--all`).
 
 | Action | Comportement |
 |---|---|
@@ -659,7 +659,7 @@ catégorie|nom|état|fichiers-compose|dépôt-source|révision|dépendances|mont
 Exemple :
 
 ```text
-download|qbittorrent|inactive|compose.yaml|||gluetun|/srv
+download|qbittorrent|active|compose.yaml|||gluetun|/srv
 ```
 
 ## Sauvegarde et restauration

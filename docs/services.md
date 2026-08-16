@@ -33,9 +33,8 @@ services, sans contenir de secret ni de configuration Nginx Proxy Manager.
 | automatisation | `radarr`, `sonarr`, `lidarr` | via `proxy` |
 | enrichissement | `bazarr`, `lazylibrarian`, `seerr`, `tinymediamanager` | via `proxy` |
 
-Ces stacks sont déployables explicitement, mais restent `inactive` dans le
-manifeste afin que `--all` ne les démarre pas avant leur configuration. Le
-détail des chemins et des flux est dans [Media stack](media-stack.md).
+Ces stacks peuvent être déployées séparément et font aussi partie de `--all`.
+Le détail des chemins, prérequis et flux est dans [Media stack](media-stack.md).
 
 ## Convention réseau
 

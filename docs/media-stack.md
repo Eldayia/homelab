@@ -1,9 +1,9 @@
 # Media stack
 
 La media stack est découpée en un projet Compose par service. Chaque service
-peut ainsi être synchronisé, recréé ou redémarré seul. Les stacks restent
-`inactive` dans le manifeste tant que leurs réglages applicatifs et secrets ne
-sont pas terminés : elles ne sont donc pas lancées par `deploy.sh up --all`.
+peut ainsi être synchronisé, recréé ou redémarré seul. Elles font toutes partie
+de `deploy.sh up --all`; il faut donc terminer leurs réglages applicatifs,
+montages et secrets avant le premier déploiement intégral.
 
 ## Stockage retenu
 
