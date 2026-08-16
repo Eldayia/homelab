@@ -10,6 +10,7 @@ HOMELAB_ROOT="${HOMELAB_ROOT:-/srv/docker}"
 ACTIVATE_FIREWALL=0
 ENABLE_BACKUP=0
 CONFIGURE_STORAGE=0
+CONFIGURE_MEDIA_STORAGE=0
 
 usage() {
   cat <<'EOF'
@@ -19,6 +20,8 @@ Options:
   --activate-firewall  Active immédiatement le pare-feu nftables.
   --enable-backup      Active le timer Restic (secrets et montage requis).
   --configure-storage  Lance l'assistant de préparation ou montage du stockage USB.
+  --configure-media-storage
+                       Monte Download et Multimedia du QNAP en NFS.
   -h, --help           Affiche cette aide.
 EOF
 }
@@ -28,6 +31,7 @@ while (($#)); do
     --activate-firewall) ACTIVATE_FIREWALL=1 ;;
     --enable-backup) ENABLE_BACKUP=1 ;;
     --configure-storage) CONFIGURE_STORAGE=1 ;;
+    --configure-media-storage) CONFIGURE_MEDIA_STORAGE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Option inconnue: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -87,6 +91,10 @@ fi
 
 if ((CONFIGURE_STORAGE)); then
   "$REPO_ROOT/scripts/configure-storage.sh" --owner "$HOMELAB_USER"
+fi
+
+if ((CONFIGURE_MEDIA_STORAGE)); then
+  "$REPO_ROOT/scripts/configure-media-storage.sh"
 fi
 
 usermod -aG docker "$HOMELAB_USER"

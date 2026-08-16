@@ -172,6 +172,7 @@ restauration dans `/`.
 | `install-host.sh` | préparer complètement l’hôte | root / `sudo` |
 | `configure-network.sh` | définir le hostname et l’IPv4 statique | root / `sudo` |
 | `configure-storage.sh` | préparer ou monter durablement un SSD USB | root / `sudo` |
+| `configure-media-storage.sh` | monter Download et Multimedia du QNAP en NFS | root / `sudo` |
 | `configure-backup.sh` | monter le QNAP et initialiser Restic | root / `sudo` |
 | `deploy.sh` | synchroniser et piloter les stacks | utilisateur Docker |
 | `backup.sh` | exécuter la sauvegarde Restic | root via systemd |
@@ -182,7 +183,7 @@ restauration dans `/`.
 ### `install-host.sh` — préparer l’hôte
 
 ```bash
-sudo ./scripts/install-host.sh [--activate-firewall] [--enable-backup] [--configure-storage]
+sudo ./scripts/install-host.sh [--activate-firewall] [--enable-backup] [--configure-storage] [--configure-media-storage]
 ```
 
 Le script :
@@ -200,6 +201,7 @@ Le script :
 | `--activate-firewall` | active immédiatement `rpi-firewall.service` |
 | `--enable-backup` | active le timer Restic si le montage et le mot de passe existent déjà |
 | `--configure-storage` | lance l’assistant interactif de préparation ou montage du SSD USB |
+| `--configure-media-storage` | monte les exports médias du QNAP en NFSv4.1 |
 | `HOMELAB_USER` | utilisateur configuré, `eldayia` par défaut |
 | `HOMELAB_ROOT` | racine des stacks, `/srv/docker` par défaut |
 | `ALLOW_UNSUPPORTED=1` | contourne le contrôle Debian 13 arm64 après vérification manuelle |
@@ -301,6 +303,66 @@ depuis le SSD.
 > affiche son modèle, sa taille et son numéro de série, puis impose de saisir
 > exactement `ERASE /dev/…`. Cette confirmation reste obligatoire même avec
 > `--yes`.
+
+### `configure-media-storage.sh` — monter les partages médias du QNAP
+
+Ce script prépare le stockage de la future media-stack sans déployer de
+conteneur :
+
+```bash
+sudo ./scripts/configure-media-storage.sh
+```
+
+Dans QTS, configurer l’accès hôte NFS de **Download** et **Multimedia** ainsi :
+
+| Réglage QTS | Valeur |
+|---|---|
+| hôte autorisé | `192.168.1.240`, IP fixe du Raspberry Pi |
+| autorisation | lecture/écriture |
+| sécurité | `sys` |
+| sync / secure | activés, `wdelay` |
+| squash | écraser tous les utilisateurs |
+| UID anonyme | `media-docker` |
+| GID anonyme | groupe de `media-docker` |
+
+Le compte et le groupe `media-docker` doivent également disposer des droits
+QTS classiques en lecture/écriture sur les deux dossiers partagés. NFS ne
+transmet pas un nom d’utilisateur ou un mot de passe : QTS mappe toutes les
+requêtes du Pi vers cette identité grâce au squash.
+
+L’assistant :
+
+- teste d’abord les deux exports dans des dossiers temporaires ;
+- vérifie que `media-docker` peut réellement créer un fichier ;
+- refuse de masquer un point de montage local non vide ;
+- sauvegarde et valide `/etc/fstab` avant sa modification ;
+- restaure l’ancien `fstab` si l’un des montages échoue ;
+- configure les montages persistants suivants :
+
+```text
+192.168.1.250:/Download   -> /mnt/nas/downloads
+192.168.1.250:/Multimedia -> /mnt/nas/multimedia
+```
+
+Avec NFSv4.1, les exports QNAP sont `/Download` et `/Multimedia`, sans le
+préfixe `/share` utilisé par NFSv3. Le SSD local reste séparé sous
+`/srv/media/downloads/torrents`.
+
+| Variable | Valeur par défaut |
+|---|---|
+| `QNAP_HOST` | `192.168.1.250` |
+| `NFS_VERSION` | `4.1` |
+| `DOWNLOAD_EXPORT` | `/Download` |
+| `MULTIMEDIA_EXPORT` | `/Multimedia` |
+| `DOWNLOAD_MOUNT` | `/mnt/nas/downloads` |
+| `MULTIMEDIA_MOUNT` | `/mnt/nas/multimedia` |
+
+Contrôle après configuration :
+
+```bash
+findmnt -T /mnt/nas/downloads -o SOURCE,TARGET,FSTYPE,OPTIONS
+findmnt -T /mnt/nas/multimedia -o SOURCE,TARGET,FSTYPE,OPTIONS
+```
 
 ### `configure-backup.sh` — initialiser les sauvegardes
 
