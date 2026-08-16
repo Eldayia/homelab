@@ -305,7 +305,7 @@ depuis le SSD.
 ### `configure-backup.sh` — initialiser les sauvegardes
 
 ```bash
-sudo QNAP_EXPORT=/share/RaspberryBackups ./scripts/configure-backup.sh
+sudo QNAP_EXPORT=/RaspberryBackups ./scripts/configure-backup.sh
 ```
 
 Avant de le lancer, activer NFS sur le QNAP et autoriser uniquement l’adresse IP
@@ -324,7 +324,7 @@ interactivement le mot de passe Restic, puis :
 | Variable | Valeur par défaut / usage |
 |---|---|
 | `QNAP_HOST` | `192.168.1.250` |
-| `QNAP_EXPORT` | `/share/RaspberryBackups`, chemin NFS affiché par le QNAP |
+| `QNAP_EXPORT` | `/RaspberryBackups`, chemin NFSv4 du partage QNAP |
 | `NFS_VERSION` | `4.1` |
 | `MOUNT_POINT` | `/mnt/qnap-backups` |
 | `RESTIC_REPOSITORY` | `<montage>/restic-rpi` |
@@ -334,6 +334,10 @@ interactivement le mot de passe Restic, puis :
 NFS n’utilise ici aucun mot de passe : l’accès est contrôlé par l’adresse IP
 autorisée sur le QNAP. Ne pas exposer NFS sur Internet. Le dépôt reste chiffré
 par Restic, mais le montage doit être réservé au réseau local de confiance.
+
+Avec QTS, le chemin diffère selon la version du protocole : NFSv4 utilise
+`/RaspberryBackups`, tandis que NFSv3 utilise généralement
+`/share/RaspberryBackups`. Le projet utilise NFSv4.1.
 
 Contrôle après configuration :
 

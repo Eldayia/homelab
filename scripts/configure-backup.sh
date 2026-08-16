@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 QNAP_HOST="${QNAP_HOST:-192.168.1.250}"
-QNAP_EXPORT="${QNAP_EXPORT:-/share/RaspberryBackups}"
+QNAP_EXPORT="${QNAP_EXPORT:-/RaspberryBackups}"
 NFS_VERSION="${NFS_VERSION:-4.1}"
 MOUNT_POINT="${MOUNT_POINT:-/mnt/qnap-backups}"
 RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-$MOUNT_POINT/restic-rpi}"
@@ -100,8 +100,7 @@ if [[ "$CURRENT_FSTAB_LINE" != "$FSTAB_LINE" ]]; then
 fi
 
 systemctl daemon-reload
-if ! mount "$MOUNT_POINT" && \
-   ! systemctl start "$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"; then
+if ! mount "$MOUNT_POINT"; then
   restore_previous_mount
   echo "Échec du montage NFS." >&2
   exit 1
