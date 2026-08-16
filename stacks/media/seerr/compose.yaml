@@ -1,0 +1,23 @@
+services:
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    init: true
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: "5055"
+    volumes:
+      - ./config:/app/config
+    expose:
+      - "5055"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

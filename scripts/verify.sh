@@ -22,10 +22,14 @@ else
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  command -v jq >/dev/null 2>&1 || {
+    echo "jq est requis pour vérifier l'absence de volumes Docker." >&2
+    exit 1
+  }
   TMP_ROOT="$(mktemp -d)"
   trap 'rm -rf -- "$TMP_ROOT"' EXIT
 
-  while IFS='|' read -r category name _state files _repository _revision; do
+  while IFS='|' read -r category name _state files _repository _revision _dependencies _mounts; do
     [[ -n "$category" && "$category" != \#* ]] || continue
     source_dir="$REPO_ROOT/stacks/$category/$name"
     test_dir="$TMP_ROOT/$name"
@@ -37,7 +41,12 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     IFS=',' read -r -a parsed <<<"$files"
     args=()
     for file in "${parsed[@]}"; do args+=(--file "$test_dir/$file"); done
-    docker compose --project-directory "$test_dir" "${args[@]}" config --quiet
+    compose_json="$(docker compose --project-directory "$test_dir" "${args[@]}" config --format json)"
+    if jq -e '[.services[].volumes[]? | select(.type == "volume")] | length > 0' \
+        <<<"$compose_json" >/dev/null; then
+      echo "Volume Docker nommé ou anonyme interdit dans $category/$name." >&2
+      exit 1
+    fi
   done <"$MANIFEST"
 else
   echo "Docker Compose absent: validation Compose ignorée."

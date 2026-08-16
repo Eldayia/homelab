@@ -4,16 +4,12 @@ services:
     container_name: homarr
     restart: unless-stopped
     environment:
-      TZ: Europe/Paris
-
-      PUID: ${PUID}
-      PGID: ${PGID}
-
+      TZ: ${TZ:-Europe/Paris}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
-
       BASE_URL: https://${HOMARR_DOMAIN}
       NEXTAUTH_URL: https://${HOMARR_DOMAIN}
-
       AUTH_PROVIDERS: credentials
       AUTH_SESSION_EXPIRY_TIME: 7d
       AUTH_COOKIE_PREFIX: homarr-daelyx

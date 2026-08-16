@@ -11,7 +11,6 @@ services, sans contenir de secret ni de configuration Nginx Proxy Manager.
 | `nginx-proxy-manager` | reverse proxy et certificats TLS | 80/443 publics, administration 81 sur le LAN |
 | `pihole` | DNS et filtrage du LAN | TCP/UDP 53, administration 8085 sur le LAN |
 | `wg-easy` | accès WireGuard au homelab | UDP 51820 public, administration 51821 sur le LAN |
-| `homarr` | portail des services | via le réseau Docker `proxy` |
 
 ## Monitoring
 
@@ -22,12 +21,21 @@ services, sans contenir de secret ni de configuration Nginx Proxy Manager.
 | `beszel` | métriques de l’hôte et des conteneurs | via `proxy` |
 | `dozzle` | consultation des logs Docker | via `proxy` |
 | `freebox-dashboard` | supervision de la Freebox | port LAN configurable |
+| `homarr` | portail des services | via `proxy` |
+| `gluetun` | passerelle VPN et kill switch | via `proxy`, sans port hôte publié |
 
 ## Media stack
 
-La media stack n’est pas encore déployable depuis ce dépôt. Son Compose sera
-intégré séparément et devra notamment définir Prowlarr, Sonarr et Radarr, leurs
-volumes, leurs réseaux et les paramètres d’identité du processus.
+| Groupe | Stacks | Accès attendu |
+|---|---|---|
+| téléchargement | `qbittorrent`, `sabnzbd`, `jdownloader`, `slskd` | namespace réseau de Gluetun |
+| indexation | `prowlarr`, `flaresolverr` | namespace réseau de Gluetun |
+| automatisation | `radarr`, `sonarr`, `lidarr` | via `proxy` |
+| enrichissement | `bazarr`, `lazylibrarian`, `seerr`, `tinymediamanager` | via `proxy` |
+
+Ces stacks sont déployables explicitement, mais restent `inactive` dans le
+manifeste afin que `--all` ne les démarre pas avant leur configuration. Le
+détail des chemins et des flux est dans [Media stack](media-stack.md).
 
 ## Convention réseau
 

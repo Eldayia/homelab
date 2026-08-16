@@ -1,0 +1,19 @@
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    network_mode: container:gluetun
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      UMASK: "002"
+      WEBUI_PORT: "8081"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ./config:/config
+      - /srv/media/downloads/torrents:/data/torrents
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true

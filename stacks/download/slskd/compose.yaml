@@ -1,0 +1,21 @@
+services:
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    network_mode: container:gluetun
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      SLSKD_UMASK: "002"
+      SLSKD_REMOTE_CONFIGURATION: "true"
+      SLSKD_INCOMPLETE_DIR: /data/incomplete
+      SLSKD_DOWNLOADS_DIR: /data/downloads
+      SLSKD_SHARED_DIR: /shares/multimedia
+    volumes:
+      - ./config:/app
+      - /srv/media/downloads/slskd:/data/incomplete
+      - /mnt/nas/downloads/slskd:/data/downloads
+      - /mnt/nas/multimedia:/shares/multimedia:ro
+    security_opt:
+      - no-new-privileges:true

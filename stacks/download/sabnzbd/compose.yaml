@@ -1,0 +1,17 @@
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    restart: unless-stopped
+    network_mode: container:gluetun
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      UMASK: "002"
+    volumes:
+      - ./config:/config
+      - /srv/media/downloads/usenet:/incomplete-downloads
+      - /mnt/nas/downloads/usenet:/downloads
+    security_opt:
+      - no-new-privileges:true

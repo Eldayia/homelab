@@ -12,6 +12,8 @@
 192.168.1.240 prowlarr.eldayia.fr
 192.168.1.240 qbit.eldayia.fr
 192.168.1.240 radarr.eldayia.fr
+192.168.1.240 sabnzbd.eldayia.fr
+192.168.1.240 seerr.eldayia.fr
 192.168.1.240 watch.eldayia.fr
 192.168.1.240 slskd.eldayia.fr
 192.168.1.240 sonarr.eldayia.fr

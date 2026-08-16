@@ -19,7 +19,7 @@ services:
     network_mode: host
 
     volumes:
-      - /srv/docker/wg-easy/config:/etc/wireguard
+      - ./config:/etc/wireguard
       - /lib/modules:/lib/modules:ro
 
     cap_add:

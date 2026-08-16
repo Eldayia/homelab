@@ -1,0 +1,25 @@
+services:
+  lazylibrarian:
+    image: lscr.io/linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      UMASK: "002"
+    volumes:
+      - ./config:/config
+      - /mnt/nas/downloads:/downloads
+      - /mnt/nas/multimedia:/books
+    expose:
+      - "5299"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

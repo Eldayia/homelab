@@ -63,7 +63,6 @@ flowchart LR
 | **Pi-hole** | DNS local et filtrage réseau |
 | **Nginx Proxy Manager** | reverse proxy et certificats TLS |
 | **wg-easy** | accès distant WireGuard |
-| **Homarr** | portail d’accès aux services |
 
 ### Monitoring
 
@@ -74,11 +73,22 @@ flowchart LR
 | **Beszel** | métriques de l’hôte et des conteneurs |
 | **Dozzle** | consultation des logs Docker |
 | **Freebox Dashboard** | supervision de la Freebox |
+| **Homarr** | portail d’accès aux services |
 
 ### Media stack
 
-La media stack n’est pas encore intégrée. Elle sera ajoutée à partir d’un
-Compose dédié comprenant notamment Prowlarr, Sonarr et Radarr.
+La media stack est préparée sous forme de projets Compose indépendants :
+
+| Groupe | Services |
+|---|---|
+| passerelle VPN | Gluetun |
+| téléchargement | qBittorrent, SABnzbd, JDownloader, slskd |
+| indexation et automatisation | Prowlarr, FlareSolverr, Radarr, Sonarr, Lidarr |
+| enrichissement et demandes | Bazarr, LazyLibrarian, Seerr, tinyMediaManager |
+
+Les stacks sont initialement marquées `inactive` dans le manifeste : elles ne
+sont pas incluses par `--all`, mais restent déployables explicitement après
+configuration de leurs `.env`. Voir [la procédure media-stack](docs/media-stack.md).
 
 ## Organisation du dépôt
 
@@ -96,13 +106,16 @@ homelab/
 │   └── stacks.manifest         catalogue utilisé par deploy.sh
 ├── scripts/                    installation et opérations
 └── stacks/
-    ├── infrastructure/         DNS, proxy, VPN et portail
-    └── monitoring/             supervision et administration
+    ├── infrastructure/         DNS, proxy et accès distant
+    ├── monitoring/             supervision, Homarr et Gluetun
+    ├── download/               clients de téléchargement
+    └── media/                  automatisation et gestion des médias
 ```
 
-Le classement par catégorie existe uniquement dans Git. Au déploiement, chaque
-stack est synchronisée dans `/srv/docker/<nom-de-la-stack>` afin de conserver
-des chemins simples et de ne pas déplacer les données existantes.
+Le classement par catégorie est conservé au déploiement : une stack est
+synchronisée dans `/srv/docker/<catégorie>/<nom>`. Au premier `sync`, le script
+migre automatiquement un ancien dossier `/srv/docker/<nom>` s’il n’existe pas
+encore de destination catégorisée.
 
 ## Installation rapide
 
@@ -145,7 +158,7 @@ sudo ./scripts/configure-backup.sh
 
 Après `install-host.sh`, se reconnecter pour prendre en compte le groupe
 `docker` et le shell Zsh. Avant tout `deploy.sh up`, remplacer les valeurs
-`CHANGE_ME` dans les fichiers `/srv/docker/<stack>/.env`.
+`CHANGE_ME` dans les fichiers `/srv/docker/<catégorie>/<stack>/.env`.
 
 ### Reconstruction après incident
 
@@ -425,8 +438,9 @@ Une sélection peut être un nom de stack (`pihole`), une catégorie entière
 | Action | Comportement |
 |---|---|
 | `list` | affiche catégorie, nom et état de chaque stack du manifeste |
-| `sync` | copie les fichiers vers `/srv/docker/<stack>` sans démarrer Docker |
+| `sync` | copie les fichiers vers `/srv/docker/<catégorie>/<stack>` sans démarrer Docker |
 | `up` | synchronise, valide puis lance avec `docker compose up -d --build` |
+| `restart` | redémarre uniquement les stacks sélectionnées |
 | `pull` | télécharge les images sans recréer les conteneurs |
 | `status` | affiche `docker compose ps` pour la sélection |
 
@@ -441,6 +455,12 @@ Exemples :
 
 # Déployer deux stacks précises
 ./scripts/deploy.sh up pihole uptime-kuma
+
+# Redémarrer uniquement qBittorrent; Gluetun doit rester sain
+./scripts/deploy.sh restart qbittorrent
+
+# Déployer les quatre downloaders; Gluetun est démarré automatiquement
+./scripts/deploy.sh up download
 
 # Mettre à jour puis recréer le monitoring
 ./scripts/deploy.sh pull monitoring
@@ -457,6 +477,10 @@ Lors du premier `sync`, un `.env.example` devient un `.env` local en mode `600`.
 Un `.env` existant n’est jamais écrasé. L’action `up` refuse de démarrer si un
 placeholder `CHANGE_ME` obligatoire est encore présent. Le réseau Docker
 `proxy` est créé automatiquement pour toutes les actions sauf `status`.
+Avant `up`, le script vérifie les montages requis, refuse tout volume Docker
+nommé ou anonyme, puis crée lui-même les dossiers de chaque bind mount. Les
+dépendances du manifeste, notamment Gluetun, sont démarrées et contrôlées avant
+leurs consommateurs.
 
 ### `backup.sh` — sauvegarder les données Docker
 
@@ -532,7 +556,7 @@ La validation exécute successivement :
 1. la recherche de secrets ;
 2. `bash -n` sur tous les scripts ;
 3. ShellCheck lorsqu’il est installé ;
-4. `docker compose config --quiet` sur chaque entrée du manifeste.
+4. le rendu de chaque Compose et le refus de tout volume nommé ou anonyme.
 
 Les exemples `.env.example` et `secrets.json.example` sont copiés dans un
 répertoire temporaire pour valider les Compose sans toucher aux déploiements.
@@ -555,8 +579,8 @@ git pull --ff-only
 
 ```bash
 docker compose \
-  --project-directory /srv/docker/uptime-kuma \
-  --file /srv/docker/uptime-kuma/compose.yaml \
+  --project-directory /srv/docker/monitoring/uptime-kuma \
+  --file /srv/docker/monitoring/uptime-kuma/compose.yaml \
   logs --tail=100 --follow
 ```
 
@@ -622,16 +646,20 @@ partition ne peut pas être utilisé simplement par l’autre.
 7. ajouter l’entrée à `inventory/stacks.manifest` ;
 8. lancer `./scripts/verify.sh` avant le déploiement.
 
+Tous les montages persistants doivent être des **bind mounts** vers de vrais
+dossiers (`./config`, `/srv/...` ou `/mnt/nas/...`). Les volumes Docker nommés
+ou anonymes sont volontairement interdits par `verify.sh` et `deploy.sh`.
+
 Format du manifeste :
 
 ```text
-catégorie|nom|état|fichiers-compose|dépôt-source|révision
+catégorie|nom|état|fichiers-compose|dépôt-source|révision|dépendances|montages-requis
 ```
 
 Exemple :
 
 ```text
-monitoring|uptime-kuma|active|compose.yaml||
+download|qbittorrent|inactive|compose.yaml|||gluetun|/srv
 ```
 
 ## Sauvegarde et restauration
@@ -681,6 +709,7 @@ Les composants encore spécifiques au Pi sont isolés dans
 | Document | Contenu |
 |---|---|
 | [Architecture](docs/architecture.md) | réseau, responsabilités et portabilité |
+| [Media stack](docs/media-stack.md) | stockage, flux, déploiement et réglages applicatifs |
 | [Services](docs/services.md) | catalogue et exposition des services |
 | [Exploitation](docs/operations.md) | opérations, mises à jour et contrôles |
 | [Secrets](docs/secrets.md) | règles et emplacements sensibles |

@@ -12,7 +12,10 @@ flowchart LR
   NPM --> PROXY["Réseau Docker proxy"]
   PROXY --> INFRA["Infrastructure"]
   PROXY --> MON["Monitoring"]
-  PROXY -.-> MEDIA["Media stack future"]
+  PROXY --> MEDIA["Media stack"]
+  VPN["Gluetun / kill switch"] --> DOWNLOAD["Downloaders"]
+  DOWNLOAD --> SSD["SSD /srv/media/downloads"]
+  DOWNLOAD --> NASMEDIA["NFS Download / Multimedia"]
   INFRA --> DATA["Données /srv/docker"]
   MON --> DATA
   DATA --> RESTIC["Sauvegarde Restic"]
@@ -24,12 +27,12 @@ flowchart LR
 - `config/` décrit le système hôte : APT, réseau, SSH, pare-feu et systemd ;
 - `stacks/<catégorie>/<stack>/` contient uniquement la définition déployable ;
 - `inventory/stacks.manifest` sélectionne les stacks connues et actives ;
-- `/srv/docker/<stack>` reçoit les Compose, secrets locaux et données ;
+- `/srv/docker/<catégorie>/<stack>` reçoit les Compose, secrets locaux et données ;
 - Restic sauvegarde l’état qui ne peut pas être reconstruit depuis Git.
 
-Le niveau de catégorie n’est volontairement pas recopié sous `/srv/docker`.
-Cette convention permet de réorganiser le dépôt sans déplacer les volumes déjà
-en production.
+Le script conserve désormais le niveau de catégorie sous `/srv/docker`. Il
+migre une ancienne destination non catégorisée lors du premier `sync`, sans
+écraser une destination déjà présente.
 
 ## Hôte actuel et portabilité
 
@@ -57,6 +60,12 @@ sont destinés à une redirection depuis Internet.
 
 Pi-hole publie TCP/UDP 53 sur l’hôte. wg-easy utilise le réseau hôte et
 `/dev/net/tun`. Les autres services privilégient `expose` et le réseau `proxy`.
+
+Les downloaders, Prowlarr et FlareSolverr partagent le namespace réseau du
+conteneur `gluetun`. Gluetun est seul raccordé à `proxy` pour ces interfaces ;
+aucun port de la media-stack n’est publié directement sur l’hôte. Chaque
+service reste un projet Compose autonome et le manifeste déclare sa dépendance
+à Gluetun.
 
 ## État et données
 

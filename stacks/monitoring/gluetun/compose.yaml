@@ -1,0 +1,36 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    hostname: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:-nordvpn}
+      VPN_TYPE: ${VPN_TYPE:-openvpn}
+      OPENVPN_USER: ${OPENVPN_USER}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD}
+      SERVER_COUNTRIES: ${SERVER_COUNTRIES:-France}
+      FIREWALL_INPUT_PORTS: "8080,8081,5800,8191,9696,5030,50300"
+      FIREWALL_OUTBOUND_SUBNETS: ${LAN_SUBNET:-192.168.1.0/24}
+    volumes:
+      - ./config:/gluetun
+    expose:
+      - "8080"
+      - "8081"
+      - "5800"
+      - "8191"
+      - "9696"
+      - "5030"
+      - "50300"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: proxy

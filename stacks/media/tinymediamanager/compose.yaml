@@ -1,0 +1,31 @@
+services:
+  tinymediamanager:
+    image: tinymediamanager/tinymediamanager:latest
+    container_name: tinymediamanager
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      USER_ID: ${PUID:-1000}
+      GROUP_ID: ${PGID:-1000}
+      UMASK: "0002"
+      PASSWORD: ${TMM_PASSWORD}
+    volumes:
+      - ./data:/data
+      - ./addons:/app/addons
+      - /mnt/nas/downloads:/media/downloads
+      - /mnt/nas/multimedia/Films:/media/films
+      - /mnt/nas/multimedia/Series:/media/series
+      - /mnt/nas/multimedia/Animes:/media/animes
+      - /mnt/nas/multimedia/Musique:/media/music
+      - /mnt/nas/multimedia/Livres:/media/books
+    expose:
+      - "4000"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

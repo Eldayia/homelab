@@ -1,0 +1,27 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      UMASK: "002"
+    volumes:
+      - ./config:/config
+      - /srv/media/downloads/torrents:/data/torrents
+      - /mnt/nas/downloads/usenet:/data/usenet
+      - /mnt/nas/downloads/jdownloader:/data/jdownloader
+      - /mnt/nas/multimedia:/data/media
+    expose:
+      - "7878"
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

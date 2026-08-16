@@ -5,7 +5,7 @@
 ```bash
 ./scripts/deploy.sh status --all
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
-docker compose -f /srv/docker/uptime-kuma/compose.yaml logs --tail=100
+docker compose -f /srv/docker/monitoring/uptime-kuma/compose.yaml logs --tail=100
 ```
 
 Pour mettre à jour une stack :
@@ -22,8 +22,21 @@ Une catégorie entière peut être ciblée de la même façon :
 ./scripts/deploy.sh up monitoring
 ```
 
-Le script synchronise les fichiers du dépôt vers `/srv/docker/<stack>` sans
-écraser un `.env` existant. Toute nouvelle stack doit être ajoutée au manifeste.
+Le script synchronise les fichiers du dépôt sans écraser un `.env` existant.
+La destination exacte est
+`/srv/docker/<catégorie>/<stack>`. Toute nouvelle stack doit être ajoutée au
+manifeste.
+
+Pour redémarrer un seul service de la media-stack :
+
+```bash
+./scripts/deploy.sh restart qbittorrent
+./scripts/deploy.sh restart radarr
+```
+
+Le déploiement d’un downloader démarre Gluetun si nécessaire. Après une
+recréation manuelle de Gluetun, recréer les consommateurs de son namespace avec
+`./scripts/deploy.sh up download prowlarr flaresolverr`.
 
 ## Sauvegarde
 

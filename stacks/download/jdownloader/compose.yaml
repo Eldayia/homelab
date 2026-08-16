@@ -1,0 +1,21 @@
+services:
+  jdownloader:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader
+    restart: unless-stopped
+    network_mode: container:gluetun
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      USER_ID: ${PUID:-1000}
+      GROUP_ID: ${PGID:-1000}
+      UMASK: "0002"
+      KEEP_APP_RUNNING: "1"
+      CLEAN_TMP_DIR: "1"
+      DISPLAY_WIDTH: "1600"
+      DISPLAY_HEIGHT: "900"
+    volumes:
+      - ./config:/config
+      - /srv/media/downloads/jdownloader:/output
+      - /mnt/nas/downloads/jdownloader:/nas-downloads
+    security_opt:
+      - no-new-privileges:true
