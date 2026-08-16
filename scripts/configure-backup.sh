@@ -4,8 +4,8 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 QNAP_HOST="${QNAP_HOST:-192.168.1.250}"
-QNAP_SHARE="${QNAP_SHARE:-RaspberryBackups}"
-QNAP_USER="${QNAP_USER:-rpi-backup}"
+QNAP_EXPORT="${QNAP_EXPORT:-/RaspberryBackups}"
+NFS_VERSION="${NFS_VERSION:-4.1}"
 MOUNT_POINT="${MOUNT_POINT:-/mnt/qnap-backups}"
 RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-$MOUNT_POINT/restic-rpi}"
 
@@ -29,13 +29,25 @@ read_secret() {
   printf -v "$variable_name" '%s' "$current_value"
 }
 
-read_secret QNAP_PASSWORD "Mot de passe du compte QNAP $QNAP_USER: "
 read_secret RESTIC_PASSWORD "Nouveau mot de passe du dépôt Restic (ou mot de passe existant): "
 
 install -d -m 0700 /root/.config/restic "$MOUNT_POINT"
-install -m 0600 /dev/null /root/.smb-qnap-backup
-printf 'username=%s\npassword=%s\n' "$QNAP_USER" "$QNAP_PASSWORD" \
-  >/root/.smb-qnap-backup
+
+command -v mount.nfs >/dev/null || {
+  echo "Le client NFS est absent. Installe le paquet nfs-common puis relance le script." >&2
+  exit 1
+}
+
+[[ "$QNAP_HOST" != *[[:space:]]* && "$QNAP_EXPORT" == /* &&
+   "$QNAP_EXPORT" != *[[:space:]]* ]] || {
+  echo "QNAP_HOST ou QNAP_EXPORT invalide." >&2
+  exit 1
+}
+
+case "$NFS_VERSION" in
+  4|4.0|4.1|4.2) ;;
+  *) echo "Version NFS non prise en charge: $NFS_VERSION" >&2; exit 1 ;;
+esac
 
 install -m 0600 /dev/null /root/.config/restic/rpi-password
 printf '%s\n' "$RESTIC_PASSWORD" >/root/.config/restic/rpi-password
@@ -45,17 +57,80 @@ if [[ -n "${KUMA_PUSH_URL:-}" ]]; then
   printf '%s\n' "$KUMA_PUSH_URL" >/root/.config/restic/kuma-push-url
 fi
 
-FSTAB_LINE="//$QNAP_HOST/$QNAP_SHARE $MOUNT_POINT cifs credentials=/root/.smb-qnap-backup,vers=3.1.1,seal,uid=0,gid=0,file_mode=0600,dir_mode=0700,nofail,_netdev,x-systemd.automount,x-systemd.device-timeout=15s 0 0"
+FSTAB_SOURCE="${QNAP_HOST}:${QNAP_EXPORT}"
+FSTAB_OPTIONS="rw,vers=${NFS_VERSION},proto=tcp,nofail,_netdev,x-systemd.automount,x-systemd.device-timeout=15s,x-systemd.mount-timeout=30s"
+FSTAB_LINE="$FSTAB_SOURCE $MOUNT_POINT nfs $FSTAB_OPTIONS 0 0"
+CURRENT_FSTAB_LINE="$(awk -v target="$MOUNT_POINT" '$1 !~ /^#/ && $2 == target {print; exit}' /etc/fstab)"
+FSTAB_CHANGED=0
 
-if grep -Eq "^[^#]+[[:space:]]+${MOUNT_POINT}[[:space:]]" /etc/fstab; then
-  echo "Une entrée existe déjà pour $MOUNT_POINT; elle est conservée."
-else
-  printf '\n%s\n' "$FSTAB_LINE" >>/etc/fstab
+restore_previous_mount() {
+  ((FSTAB_CHANGED)) || return 0
+  umount "$MOUNT_POINT" 2>/dev/null || true
+  cp "$FSTAB_BACKUP" /etc/fstab
+  systemctl daemon-reload
+  mount "$MOUNT_POINT" 2>/dev/null || true
+  echo "L'ancien /etc/fstab a été restauré." >&2
+}
+
+if [[ "$CURRENT_FSTAB_LINE" != "$FSTAB_LINE" ]]; then
+  if mountpoint -q "$MOUNT_POINT"; then
+    echo "Démontage de l'ancien partage sur $MOUNT_POINT..."
+    umount "$MOUNT_POINT" || {
+      echo "Impossible de démonter $MOUNT_POINT; vérifie qu'aucun processus ne l'utilise." >&2
+      exit 1
+    }
+  fi
+
+  FSTAB_BACKUP="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
+  FSTAB_TEMP="$(mktemp)"
+  cp /etc/fstab "$FSTAB_BACKUP"
+  awk -v target="$MOUNT_POINT" '$1 ~ /^#/ || $2 != target' /etc/fstab >"$FSTAB_TEMP"
+  printf '\n%s\n' "$FSTAB_LINE" >>"$FSTAB_TEMP"
+
+  if ! findmnt --verify --tab-file "$FSTAB_TEMP" >/dev/null; then
+    rm -f "$FSTAB_TEMP"
+    echo "La nouvelle configuration NFS est invalide; /etc/fstab reste inchangé." >&2
+    exit 1
+  fi
+
+  install -m 0644 "$FSTAB_TEMP" /etc/fstab
+  rm -f "$FSTAB_TEMP"
+  FSTAB_CHANGED=1
+  echo "Sauvegarde de l'ancien fstab: $FSTAB_BACKUP"
 fi
 
 systemctl daemon-reload
-mount "$MOUNT_POINT" || systemctl start "$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"
-mountpoint -q "$MOUNT_POINT"
+if ! mount "$MOUNT_POINT" && \
+   ! systemctl start "$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"; then
+  restore_previous_mount
+  echo "Échec du montage NFS." >&2
+  exit 1
+fi
+
+mountpoint -q "$MOUNT_POINT" || {
+  restore_previous_mount
+  echo "Le partage NFS n'est pas monté sur $MOUNT_POINT." >&2
+  exit 1
+}
+
+MOUNT_FSTYPE="$(findmnt --noheadings --output FSTYPE --target "$MOUNT_POINT" | xargs)"
+[[ "$MOUNT_FSTYPE" == nfs || "$MOUNT_FSTYPE" == nfs4 ]] || {
+  restore_previous_mount
+  echo "Le montage actif sur $MOUNT_POINT n'est pas de type NFS." >&2
+  exit 1
+}
+
+WRITE_TEST="$MOUNT_POINT/.homelab-nfs-write-test"
+if ! touch "$WRITE_TEST"; then
+  restore_previous_mount
+  echo "Le partage NFS est monté mais root ne peut pas y écrire." >&2
+  echo "Autorise l'IP du Raspberry Pi en lecture/écriture dans les permissions NFS du QNAP." >&2
+  exit 1
+fi
+rm -f "$WRITE_TEST"
+
+# L'ancien secret SMB n'est plus utile après une migration réussie vers NFS.
+rm -f /root/.smb-qnap-backup
 
 export RESTIC_REPOSITORY
 export RESTIC_PASSWORD_FILE=/root/.config/restic/rpi-password

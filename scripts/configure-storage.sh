@@ -448,8 +448,11 @@ if [[ "$MOUNT_POINT" == "/srv" ]]; then
   if ((POSIX_PERMISSIONS)); then
     install -d -o "$OWNER" -g "$(id -gn "$OWNER")" -m 0775 \
       /srv/docker /srv/media /srv/media/downloads
+    install -d -o root -g root -m 0700 \
+      /srv/docker/backup /srv/docker/backup/dumps
   else
     install -d -m 0775 /srv/docker /srv/media /srv/media/downloads
+    install -d -m 0700 /srv/docker/backup /srv/docker/backup/dumps
   fi
 fi
 

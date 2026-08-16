@@ -4,7 +4,6 @@ bash-completion
 bat
 build-essential
 ca-certificates
-cifs-utils
 cmake
 cockpit
 cockpit-packagekit
@@ -34,6 +33,7 @@ ncdu
 neovim
 net-tools
 nftables
+nfs-common
 nodejs
 npm
 ntfs-3g

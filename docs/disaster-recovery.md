@@ -74,22 +74,22 @@ sudo nft delete table inet rpi_guard
 ## 5. Monter le QNAP et ouvrir Restic
 
 ```bash
-sudo QNAP_USER=rpi-backup ./scripts/configure-backup.sh
+sudo QNAP_EXPORT=/RaspberryBackups ./scripts/configure-backup.sh
 ```
 
-Le script demande sans les afficher :
+Le QNAP doit au préalable exposer le dossier en NFS et autoriser l’adresse IP
+fixe du Raspberry Pi en lecture/écriture. Le script demande sans l’afficher :
 
-- le mot de passe du partage QNAP ;
 - le mot de passe du dépôt Restic.
 
-Il crée `/root/.smb-qnap-backup` et
-`/root/.config/restic/rpi-password` en mode `600`, ajoute le montage CIFS et
-active le timer quotidien.
+Il crée `/root/.config/restic/rpi-password` en mode `600`, ajoute le montage
+NFSv4.1, vérifie son accès en écriture et active le timer quotidien.
 
 Contrôles :
 
 ```bash
 mountpoint /mnt/qnap-backups
+findmnt -T /mnt/qnap-backups -o SOURCE,TARGET,FSTYPE,OPTIONS
 sudo RESTIC_PASSWORD_FILE=/root/.config/restic/rpi-password \
   restic -r /mnt/qnap-backups/restic-rpi snapshots
 ```

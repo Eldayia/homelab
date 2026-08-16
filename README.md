@@ -305,13 +305,18 @@ depuis le SSD.
 ### `configure-backup.sh` — initialiser les sauvegardes
 
 ```bash
-sudo QNAP_USER=rpi-backup ./scripts/configure-backup.sh
+sudo QNAP_EXPORT=/RaspberryBackups ./scripts/configure-backup.sh
 ```
 
-Le script demande interactivement les mots de passe QNAP et Restic, puis :
+Avant de le lancer, activer NFS sur le QNAP et autoriser uniquement l’adresse IP
+fixe du Raspberry Pi en lecture/écriture sur l’export. Le script demande
+interactivement le mot de passe Restic, puis :
 
-- crée les fichiers de secrets root en mode `600` ;
-- ajoute le montage CIFS à `/etc/fstab` s’il n’existe pas ;
+- crée le fichier du mot de passe Restic en mode `600` ;
+- configure un montage NFSv4.1 persistant dans `/etc/fstab` ;
+- remplace l’ancienne entrée utilisant le même point de montage après avoir
+  sauvegardé `fstab` ;
+- vérifie que le partage est bien monté en NFS et accessible en écriture ;
 - monte le partage et initialise le dépôt Restic si nécessaire ;
 - installe `backup.sh` sous `/srv/docker/backup/` ;
 - installe et active `docker-restic-backup.timer`.
@@ -319,18 +324,22 @@ Le script demande interactivement les mots de passe QNAP et Restic, puis :
 | Variable | Valeur par défaut / usage |
 |---|---|
 | `QNAP_HOST` | `192.168.1.250` |
-| `QNAP_SHARE` | `RaspberryBackups` |
-| `QNAP_USER` | `rpi-backup` |
+| `QNAP_EXPORT` | `/RaspberryBackups`, chemin NFS affiché par le QNAP |
+| `NFS_VERSION` | `4.1` |
 | `MOUNT_POINT` | `/mnt/qnap-backups` |
 | `RESTIC_REPOSITORY` | `<montage>/restic-rpi` |
-| `QNAP_PASSWORD` | évite la saisie interactive ; ne pas stocker dans Git |
 | `RESTIC_PASSWORD` | évite la saisie interactive ; ne pas stocker dans Git |
 | `KUMA_PUSH_URL` | URL Push facultative pour notifier Uptime Kuma |
+
+NFS n’utilise ici aucun mot de passe : l’accès est contrôlé par l’adresse IP
+autorisée sur le QNAP. Ne pas exposer NFS sur Internet. Le dépôt reste chiffré
+par Restic, mais le montage doit être réservé au réseau local de confiance.
 
 Contrôle après configuration :
 
 ```bash
 mountpoint /mnt/qnap-backups
+findmnt -T /mnt/qnap-backups -o SOURCE,TARGET,FSTYPE,OPTIONS
 systemctl list-timers docker-restic-backup.timer
 sudo systemctl start docker-restic-backup.service
 sudo journalctl -u docker-restic-backup.service -n 100 --no-pager
@@ -525,6 +534,7 @@ Une seule partition est recommandée. La séparation logique suffit :
 
 ```text
 /srv/docker             configurations et données applicatives sauvegardées
+/srv/docker/backup      script de sauvegarde et fichiers temporaires privés
 /srv/media/downloads    téléchargements torrent, exclus de la sauvegarde Restic
 ```
 
@@ -561,7 +571,7 @@ monitoring|uptime-kuma|active|compose.yaml||
 | Élément | Emplacement |
 |---|---|
 | Données et configurations Docker | `/srv/docker` |
-| Identifiants CIFS | `/root/.smb-qnap-backup` |
+| Autorisation NAS | export NFS limité à l’adresse IP fixe du Raspberry Pi |
 | Mot de passe Restic | `/root/.config/restic/rpi-password` |
 | URL Push Uptime Kuma | `/root/.config/restic/kuma-push-url` |
 | Dépôt Restic actuel | `/mnt/qnap-backups/restic-rpi` |

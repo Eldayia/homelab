@@ -4,7 +4,7 @@
 
 - aucun secret en clair dans Git, même si le dépôt est privé ;
 - un fichier `.env` par stack, mode `600` ;
-- mots de passe Restic, CIFS et URL Push Kuma sous `/root/.config` ou `/root` ;
+- mot de passe Restic et URL Push Kuma sous `/root/.config` ;
 - sauvegarde des secrets par Restic avec le reste de `/srv/docker` ;
 - copie secondaire du mot de passe Restic dans un gestionnaire de mots de passe.
 
@@ -37,7 +37,6 @@ l’intégration de son Compose.
 
 | Fichier | Usage | Mode |
 |---|---|---:|
-| `/root/.smb-qnap-backup` | identifiants CIFS QNAP | `600` |
 | `/root/.config/restic/rpi-password` | déchiffrement Restic | `600` |
 | `/root/.config/restic/kuma-push-url` | notification Push Kuma | `600` |
 
