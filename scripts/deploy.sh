@@ -21,17 +21,17 @@ done
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/deploy.sh ACTION [--all | STACK...]
+Usage: ./scripts/deploy.sh ACTION [--all | CATÉGORIE | STACK...]
 
 Actions:
-  list     Liste les stacks connues.
+  list     Liste les stacks connues, regroupées par catégorie.
   sync     Clone les sources nécessaires et copie les configurations.
   up       Synchronise puis démarre/recrée les stacks.
   pull     Télécharge les images sans redémarrer.
   status   Affiche l'état Compose.
 
 Exemples:
-  ./scripts/deploy.sh sync --all
+  ./scripts/deploy.sh sync infrastructure
   ./scripts/deploy.sh up nginx-proxy-manager pihole
   ./scripts/deploy.sh up --all
 EOF
@@ -41,7 +41,7 @@ EOF
 
 if [[ "$ACTION" == "help" ]]; then usage; exit 0; fi
 if [[ "$ACTION" == "list" ]]; then
-  awk -F'|' '!/^#/ && NF {printf "%-24s %s\n", $1, $2}' "$MANIFEST"
+  awk -F'|' '!/^#/ && NF {printf "%-16s %-24s %s\n", $1, $2, $3}' "$MANIFEST"
   exit 0
 fi
 
@@ -56,11 +56,11 @@ command -v docker >/dev/null || { echo "Docker est requis." >&2; exit 1; }
 command -v rsync >/dev/null || { echo "rsync est requis." >&2; exit 1; }
 
 is_requested() {
-  local candidate="$1"
+  local category="$1" candidate="$2"
   local item
   ((ALL)) && return 0
   for item in "${REQUESTED[@]}"; do
-    [[ "$candidate" == "$item" ]] && return 0
+    [[ "$candidate" == "$item" || "$category" == "$item" ]] && return 0
   done
   return 1
 }
@@ -98,8 +98,8 @@ prepare_source() {
 }
 
 sync_stack() {
-  local name="$1" repository="$2" revision="$3"
-  local source="$REPO_ROOT/stacks/$name"
+  local category="$1" name="$2" repository="$3" revision="$4"
+  local source="$REPO_ROOT/stacks/$category/$name"
   local target="$HOMELAB_ROOT/$name"
 
   [[ -d "$source" ]] || { echo "Configuration absente: $source" >&2; exit 1; }
@@ -137,9 +137,9 @@ if [[ "$ACTION" != "status" ]]; then
 fi
 
 FOUND=0
-while IFS='|' read -r name state files repository revision; do
-  [[ -n "$name" && "$name" != \#* ]] || continue
-  is_requested "$name" || continue
+while IFS='|' read -r category name state files repository revision; do
+  [[ -n "$category" && "$category" != \#* ]] || continue
+  is_requested "$category" "$name" || continue
   ((FOUND += 1))
 
   if ((ALL)) && [[ "$state" != "active" ]]; then
@@ -148,7 +148,7 @@ while IFS='|' read -r name state files repository revision; do
 
   target="$HOMELAB_ROOT/$name"
   if [[ "$ACTION" == "sync" || "$ACTION" == "up" ]]; then
-    sync_stack "$name" "$repository" "$revision"
+    sync_stack "$category" "$name" "$repository" "$revision"
   fi
 
   compose_args "$target" "$files"

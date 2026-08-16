@@ -15,19 +15,15 @@ Pour mettre à jour une stack :
 ./scripts/deploy.sh up nom-de-la-stack
 ```
 
-Les applications maison sont des dépôts indépendants. Le script ne réinitialise
-jamais un dépôt existant et ne détruit pas ses changements locaux.
+Une catégorie entière peut être ciblée de la même façon :
 
-miniPaint est construit localement depuis la version officielle `v4.14.3`,
-épinglée au commit `a79733eb803fc97084ef0ee4faa96b031e69e1c0`. Une mise à jour
-demande de modifier simultanément `MINIPAINT_REF`, le tag de l'image et les
-labels de `stacks/minipaint/Dockerfile`.
+```bash
+./scripts/deploy.sh pull monitoring
+./scripts/deploy.sh up monitoring
+```
 
-Kinklist est épinglé au commit de durcissement
-`fb371da4e5e46f9f52aa49a5043da725cbea1934`. Son conteneur s'appelle
-`kinklist-app`, mais le service Compose conserve l'alias DNS `kinklist` attendu
-par NPM. Foundry utilise `CONTAINER_PRESERVE_CONFIG=true` pour ne pas réécrire
-son `config.json` lors des recréations.
+Le script synchronise les fichiers du dépôt vers `/srv/docker/<stack>` sans
+écraser un `.env` existant. Toute nouvelle stack doit être ajoutée au manifeste.
 
 ## Sauvegarde
 

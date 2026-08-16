@@ -1,57 +1,65 @@
 # Architecture
 
-## Vue d'ensemble
+## Vue d’ensemble
 
 ```mermaid
 flowchart LR
-  Internet["Internet / Freebox"] -->|"TCP 80/443"| NPM["Nginx Proxy Manager"]
+  Internet["Internet / routeur"] -->|"TCP 80/443"| NPM["Nginx Proxy Manager"]
   Internet -->|"UDP 51820"| WG["WireGuard / wg-easy"]
-  LAN["LAN 192.168.1.0/24"] --> PI["Pi-hole DNS"]
+  LAN["Réseau local"] --> PI["Pi-hole DNS"]
   WG --> LAN
   PI --> NPM
   NPM --> PROXY["Réseau Docker proxy"]
-  PROXY --> APPS["Applications Docker"]
-  APPS --> DATA["Données /srv/docker/*"]
-  DATA --> RESTIC["Restic quotidien"]
-  RESTIC --> QNAP["QNAP 192.168.1.250"]
-  KUMA["Uptime Kuma"] --> PROXY
-  KUMA --> SOCK["Docker socket proxy en lecture seule"]
+  PROXY --> INFRA["Infrastructure"]
+  PROXY --> MON["Monitoring"]
+  PROXY -.-> MEDIA["Media stack future"]
+  INFRA --> DATA["Données /srv/docker"]
+  MON --> DATA
+  DATA --> RESTIC["Sauvegarde Restic"]
+  RESTIC --> NAS["Stockage externe"]
 ```
 
-## Hôte
+## Séparation des responsabilités
 
-- Raspberry Pi 4 arm64 ;
-- Debian 13 (Trixie), noyau Raspberry Pi 6.18 ;
-- hostname `rpi4`, IP fixe `192.168.1.240/24` ;
-- passerelle `192.168.1.1`, fuseau `Europe/Paris` ;
-- Docker Engine et Compose ;
-- `/srv/docker/<stack>` pour les configurations et données ;
-- réseau Docker partagé `proxy` pour les services publiés via NPM.
+- `config/` décrit le système hôte : APT, réseau, SSH, pare-feu et systemd ;
+- `stacks/<catégorie>/<stack>/` contient uniquement la définition déployable ;
+- `inventory/stacks.manifest` sélectionne les stacks connues et actives ;
+- `/srv/docker/<stack>` reçoit les Compose, secrets locaux et données ;
+- Restic sauvegarde l’état qui ne peut pas être reconstruit depuis Git.
 
-## Exposition réseau
+Le niveau de catégorie n’est volontairement pas recopié sous `/srv/docker`.
+Cette convention permet de réorganiser le dépôt sans déplacer les volumes déjà
+en production.
 
-- publics : TCP 80/443 vers NPM et UDP 51820 vers WireGuard ;
-- LAN uniquement : SSH 22, NPM 81, Pi-hole 8085, Portainer 9443,
-  wg-easy 51821, Cockpit 9090 et PCP ;
-- DNS Pi-hole : TCP/UDP 53 sur l'hôte ;
-- les autres applications utilisent `expose` et le réseau `proxy`, sans port
-  publié sur l'hôte.
+## Hôte actuel et portabilité
 
-Pi-hole rejoint aussi `proxy` afin que NPM le contacte sur `pihole:80`, tout en
-gardant son administration directe liée à `192.168.1.240:8085`. wg-easy utilise
-le réseau hôte et `/dev/net/tun`; sa route NPM cible donc
-`192.168.1.240:51821`, pas un nom de conteneur.
+La plateforme validée est un Raspberry Pi 4 arm64 sous Debian/Raspberry Pi OS
+13, avec Docker Engine et le plugin Compose. L’adresse actuelle est documentée
+dans `config/network.env.example`, mais les Compose utilisent des variables
+pour les liaisons dépendantes de l’hôte.
 
-Le pare-feu est défini dans `config/nftables/rpi-guard.nft`. Il autorise le LAN,
-le sous-réseau WireGuard `10.42.42.0/24`, les réseaux Docker
-`172.16.0.0/12`, HTTP/HTTPS, WireGuard et ICMP/ICMPv6.
+Pour migrer vers un autre matériel :
+
+1. vérifier que l’OS fournit les paquets de `inventory/apt-packages.txt` ;
+2. vérifier la prise en charge de l’architecture par chaque image ;
+3. adapter le réseau, le pare-feu, les montages et les unités systemd ;
+4. restaurer `/srv/docker`, puis valider les Compose avant leur démarrage.
+
+Les fichiers `config/apt/raspi.sources`, `rpi-guard.nft` et
+`rpi-firewall.service` restent spécifiques à l’hôte actuel.
+
+## Réseau
+
+Le réseau Docker externe `proxy` relie Nginx Proxy Manager aux interfaces web.
+Le script de déploiement le crée si nécessaire. Les services d’administration
+directe sont liés à l’adresse LAN paramétrée ; seuls HTTP/HTTPS et WireGuard
+sont destinés à une redirection depuis Internet.
+
+Pi-hole publie TCP/UDP 53 sur l’hôte. wg-easy utilise le réseau hôte et
+`/dev/net/tun`. Les autres services privilégient `expose` et le réseau `proxy`.
 
 ## État et données
 
-Les fichiers Compose sont reproductibles, mais l'état des applications ne l'est
-pas : NPM, Pi-hole, Kuma, Homarr, Vaultwarden, Forgejo et les autres services
-conservent leurs données sous `/srv/docker`. La reconstruction complète dépend
-donc de deux sources :
-
-1. ce dépôt Git pour l'hôte et l'orchestration ;
-2. Restic pour les données, bases, certificats et secrets locaux.
+Git permet de reconstruire l’hôte et les définitions Docker, mais pas l’état des
+applications. La reprise complète dépend donc de ce dépôt et de la sauvegarde
+Restic chiffrée contenant `/srv/docker` et ses secrets locaux.

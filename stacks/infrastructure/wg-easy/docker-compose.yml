@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
     environment:
-      TZ: Europe/Paris
+      TZ: ${TZ:-Europe/Paris}
 
       # Autorise l’interface HTTP sur le réseau local.
       # Ne jamais rediriger le port TCP 51821 depuis Internet.

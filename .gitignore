@@ -1,0 +1,22 @@
+# Secrets et variables locales
+**/.env
+!**/.env.example
+**/secrets.json
+!**/secrets.json.example
+*.pem
+*.key
+
+# Données persistantes Docker
+stacks/**/data/
+stacks/**/config/
+stacks/**/appdata/
+stacks/**/etc-pihole/
+stacks/**/letsencrypt/
+stacks/**/agent-data/
+stacks/**/socket/
+
+# Fichiers locaux
+.DS_Store
+Thumbs.db
+*.log
+*.swp

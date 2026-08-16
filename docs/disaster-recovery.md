@@ -1,7 +1,7 @@
 # Reprise après sinistre
 
-Cette procédure vise une carte neuve ou un Raspberry Pi de remplacement. Elle
-ne doit pas écraser un `/srv/docker` existant sans sauvegarde préalable.
+Cette procédure vise un hôte neuf ou de remplacement. Elle ne doit pas écraser
+un `/srv/docker` existant sans sauvegarde préalable.
 
 ## 1. Préparer le système
 
@@ -102,8 +102,7 @@ sudo ./scripts/restore-data.sh \
 
 ## 7. Synchroniser et démarrer
 
-Les applications maison sont clonées aux révisions auditées, puis leurs fichiers
-d'infrastructure sont appliqués :
+Les fichiers de configuration sont synchronisés par catégorie ou en totalité :
 
 ```bash
 ./scripts/deploy.sh sync --all
@@ -114,11 +113,8 @@ Si aucune sauvegarde n'est disponible, `sync --all` crée les `.env` depuis les
 modèles. Remplace chaque `CHANGE_ME`, puis relance `up --all`.
 
 Dans ce cas, les entrées DNS locales Pi-hole à recréer sont aussi conservées
-dans `stacks/pihole/dns-hosts.txt`. Le fichier ne contient aucun mot de passe.
-
-Foundry VTT nécessite en plus un `secrets.json` et une URL temporaire de
-téléchargement. La licence est liée au hostname Docker `foundryvtt-rpi` : ne le
-change pas.
+dans `stacks/infrastructure/pihole/dns-hosts.txt`. Le fichier ne contient aucun
+mot de passe.
 
 ## 8. Vérifications finales
 

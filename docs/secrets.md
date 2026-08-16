@@ -20,10 +20,6 @@ openssl rand -base64 36
 # Secret hexadécimal de 64 caractères
 openssl rand -hex 32
 
-# APP_KEY BookStack
-printf 'base64:'
-openssl rand -base64 32 | tr -d '\n'
-printf '\n'
 ```
 
 ## Variables attendues
@@ -31,21 +27,11 @@ printf '\n'
 | Stack | Variables sensibles |
 |---|---|
 | Beszel | `BESZEL_TOKEN`, `BESZEL_KEY` fournis par le hub |
-| BookStack | `APP_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` |
-| ConvertX | `JWT_SECRET` |
-| Forgejo | `POSTGRES_PASSWORD` |
-| Foundry VTT | `FOUNDRY_RELEASE_URL`, `secrets.json` |
-| HedgeDoc | `POSTGRES_PASSWORD` utilisé aussi comme secret de session |
 | Homarr | `SECRET_ENCRYPTION_KEY` |
-| Kinklist | `DATA_ENCRYPTION_KEY`, `STATS_TOKEN` |
-| NfoForge | `RATE_LIMIT_SALT`, `ADMIN_TOKEN`, clés API facultatives |
 | Pi-hole | `PIHOLE_PASSWORD` |
-| PrezForge | identifiants IGDB facultatifs |
-| PsiTransfer | mots de passe administrateur et upload |
-| Stirling PDF | identifiant et mot de passe initial |
 
-Vaultwarden ne possède pas de secret dans le Compose actuel : ses comptes et
-clés sont dans `stacks/vaultwarden/data`, restauré par Restic.
+Les futures variables sensibles de la media stack seront documentées lors de
+l’intégration de son Compose.
 
 ## Fichiers root hors dépôt
 
