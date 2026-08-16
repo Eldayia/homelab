@@ -9,10 +9,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "192.168.1.240:81:81"
+      - "${LAN_IP:-192.168.1.240}:${NPM_ADMIN_PORT:-81}:81"
 
     environment:
-      TZ: Europe/Paris
+      TZ: ${TZ:-Europe/Paris}
 
     volumes:
       - ./data:/data

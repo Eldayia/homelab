@@ -25,9 +25,9 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
   TMP_ROOT="$(mktemp -d)"
   trap 'rm -rf -- "$TMP_ROOT"' EXIT
 
-  while IFS='|' read -r name _state files _repository _revision; do
-    [[ -n "$name" && "$name" != \#* ]] || continue
-    source_dir="$REPO_ROOT/stacks/$name"
+  while IFS='|' read -r category name _state files _repository _revision; do
+    [[ -n "$category" && "$category" != \#* ]] || continue
+    source_dir="$REPO_ROOT/stacks/$category/$name"
     test_dir="$TMP_ROOT/$name"
     cp -a "$source_dir" "$test_dir"
     [[ -f "$test_dir/.env.example" ]] && cp "$test_dir/.env.example" "$test_dir/.env"

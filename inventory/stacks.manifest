@@ -1,27 +1,10 @@
-# name|state|compose files (comma-separated)|source repository|audited revision
-nginx-proxy-manager|active|docker-compose.yml||
-pihole|active|compose.yaml||
-wg-easy|active|docker-compose.yml||
-portainer|active|docker-compose.yml||
-beszel|active|compose.yaml||
-bookstack|active|compose.yaml||
-convertx|active|compose.yaml||
-dozzle|active|compose.yaml||
-excalidraw|active|compose.yaml||
-forgejo|active|compose.yaml||
-foundryvtt|active|compose.yaml||
-freebox-dashboard|active|docker-compose.yml||
-hastebin|active|compose.yaml||
-hedgedoc|active|compose.yaml||
-homarr|active|compose.yaml||
-it-tools|active|compose.yaml||
-kinklist|active|docker-compose.yml|git@github.com:Eldayia/Kinklist.git|fb371da4e5e46f9f52aa49a5043da725cbea1934
-linkstack|active|docker-compose.yml||
-metube|active|compose.yaml||
-nfoforge|active|compose.yaml,compose.proxy.yaml|git@github.com:Eldayia/nfoforge.git|81920a05836d9d41f1c97e8cce3d560d9b9b0b4f
-prezforge|active|compose.yaml,compose.proxy.yaml|git@github.com:Eldayia/prezforge.git|7c71465835692812624c0e5a9afc668d5d21e62b
-psitransfer|active|compose.yaml|https://github.com/psi-4ward/psitransfer.git|e1040f23d985810e6965a54dcb77e4f86542216f
-stirling-pdf|active|compose.yaml||
-uptime-kuma|active|compose.yaml||
-vaultwarden|active|compose.yaml||
-minipaint|active|compose.yaml||
+# category|name|state|compose files (comma-separated)|source repository|audited revision
+infrastructure|nginx-proxy-manager|active|docker-compose.yml||
+infrastructure|pihole|active|compose.yaml||
+infrastructure|wg-easy|active|docker-compose.yml||
+infrastructure|homarr|active|compose.yaml||
+monitoring|beszel|active|compose.yaml||
+monitoring|dozzle|active|compose.yaml||
+monitoring|freebox-dashboard|active|docker-compose.yml||
+monitoring|portainer|active|docker-compose.yml||
+monitoring|uptime-kuma|active|compose.yaml||
