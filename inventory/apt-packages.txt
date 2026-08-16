@@ -12,6 +12,7 @@ cockpit-storaged
 cron
 curl
 ethtool
+e2fsprogs
 fd-find
 figlet
 fzf

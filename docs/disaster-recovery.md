@@ -34,7 +34,9 @@ sudo ./scripts/configure-storage.sh
 findmnt /srv
 ```
 
-L’assistant ne formate jamais le disque et refuse les partitions système.
+L’assistant refuse les partitions système. Le formatage n’est disponible
+qu’après sélection explicite du mode destructif et saisie du chemin exact du
+disque à effacer.
 
 ## 3. Réseau statique
 

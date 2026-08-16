@@ -115,8 +115,8 @@ des chemins simples et de ne pas déplacer les données existantes.
 - un accès `sudo` et une clé SSH fonctionnelle ;
 - l’accès au dépôt privé GitHub ;
 - pour la sauvegarde, un partage QNAP joignable et un mot de passe Restic.
-- pour le stockage média, une partition existante sur le SSD USB ; ext4 est
-  recommandé.
+- pour le stockage, un SSD USB existant ou un disque dont le contenu peut être
+  entièrement effacé ; ext4 est recommandé.
 
 ### Nouvel hôte
 
@@ -171,7 +171,7 @@ restauration dans `/`.
 |---|---|---|
 | `install-host.sh` | préparer complètement l’hôte | root / `sudo` |
 | `configure-network.sh` | définir le hostname et l’IPv4 statique | root / `sudo` |
-| `configure-storage.sh` | monter durablement un SSD USB déjà formaté | root / `sudo` |
+| `configure-storage.sh` | préparer ou monter durablement un SSD USB | root / `sudo` |
 | `configure-backup.sh` | monter le QNAP et initialiser Restic | root / `sudo` |
 | `deploy.sh` | synchroniser et piloter les stacks | utilisateur Docker |
 | `backup.sh` | exécuter la sauvegarde Restic | root via systemd |
@@ -199,7 +199,7 @@ Le script :
 |---|---|
 | `--activate-firewall` | active immédiatement `rpi-firewall.service` |
 | `--enable-backup` | active le timer Restic si le montage et le mot de passe existent déjà |
-| `--configure-storage` | lance l’assistant interactif de montage du SSD USB |
+| `--configure-storage` | lance l’assistant interactif de préparation ou montage du SSD USB |
 | `HOMELAB_USER` | utilisateur configuré, `eldayia` par défaut |
 | `HOMELAB_ROOT` | racine des stacks, `/srv/docker` par défaut |
 | `ALLOW_UNSUPPORTED=1` | contourne le contrôle Debian 13 arm64 après vérification manuelle |
@@ -243,7 +243,7 @@ sudo -E ./scripts/configure-network.sh --apply
 > **Attention :** l’application peut interrompre la session SSH. Utiliser une
 > console locale ou garder une seconde session ouverte.
 
-### `configure-storage.sh` — monter un SSD USB
+### `configure-storage.sh` — préparer ou monter un SSD USB
 
 L’assistant peut être lancé pendant l’installation avec
 `install-host.sh --configure-storage`, ou indépendamment :
@@ -252,12 +252,13 @@ L’assistant peut être lancé pendant l’installation avec
 sudo ./scripts/configure-storage.sh
 ```
 
-Il affiche les disques et partitions détectés, puis demande la partition à
-monter. Après confirmation, il :
+Il affiche les disques détectés, puis propose de monter une partition existante
+ou d’effacer et préparer un disque USB entier. Selon le mode choisi, il :
 
 - vérifie qu’il s’agit d’une partition et non du disque entier ;
 - refuse les partitions racine et de démarrage ;
-- refuse une partition sans système de fichiers ou sans UUID ;
+- peut créer explicitement une table GPT et une partition ext4 unique ;
+- refuse tout formatage d’un disque non USB, monté ou référencé dans `fstab` ;
 - refuse de masquer un point de montage contenant déjà des fichiers ;
 - ajoute une entrée par UUID à `/etc/fstab` ;
 - utilise `nofail` et une unité d’automontage systemd pour ne pas bloquer le
@@ -268,18 +269,21 @@ monter. Après confirmation, il :
 Exécution guidée recommandée :
 
 ```bash
+# Efface entièrement /dev/sda, puis le prépare pour tout le homelab
 sudo ./scripts/configure-storage.sh \
-  --device /dev/sda1 \
+  --format \
+  --device /dev/sda \
   --mount-point /srv \
   --owner eldayia
 ```
 
 | Option ou variable | Valeur / usage |
 |---|---|
-| `--device`, `STORAGE_DEVICE` | partition à monter, par exemple `/dev/sda1` |
+| `--device`, `STORAGE_DEVICE` | partition à monter, ou disque entier avec `--format` |
+| `--format` | efface le disque entier et crée GPT + une partition ext4 |
 | `--mount-point`, `STORAGE_MOUNT_POINT` | `/srv` pour tout le homelab ou `/srv/media` pour les médias seuls |
 | `--owner`, `STORAGE_OWNER` | utilisateur propriétaire du stockage |
-| `--yes` | applique sans question, après les mêmes contrôles de sécurité |
+| `--yes` | saute la confirmation d’un simple montage, jamais celle du formatage |
 
 Les formats pris en charge sont ext2/3/4, XFS, Btrfs et NTFS. **Ext4 est le
 choix recommandé** pour un SSD dédié au homelab. NTFS est utile si le disque
@@ -293,10 +297,10 @@ Pour placer également le système et le moteur Docker sur SSD, la solution la
 plus simple et la plus cohérente est de démarrer directement Raspberry Pi OS
 depuis le SSD.
 
-> **Aucune donnée n’est formatée ou repartitionnée par ce script.** Si le SSD
-> est vierge, l’assistant s’arrête. Vérifier alors le nom du disque avant toute
-> opération destructive et créer explicitement la partition en dehors du
-> script.
+> **Le formatage est irréversible.** Il exige de sélectionner le disque entier,
+> affiche son modèle, sa taille et son numéro de série, puis impose de saisir
+> exactement `ERASE /dev/…`. Cette confirmation reste obligatoire même avec
+> `--yes`.
 
 ### `configure-backup.sh` — initialiser les sauvegardes
 
@@ -487,7 +491,7 @@ docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 
 ## Monter un SSD USB
 
-Pour un SSD possédant déjà une partition formatée :
+Pour un SSD à conserver tel quel :
 
 ```bash
 # 1. Identifier précisément le disque et sa partition
@@ -506,6 +510,28 @@ rm /srv/media/.write-test
 Ne jamais supposer que le SSD est toujours `/dev/sda` : ce nom peut changer
 selon l’ordre de détection des périphériques. C’est pourquoi la configuration
 persistante générée utilise l’UUID de la partition.
+
+Pour effacer un SSD et utiliser toute sa capacité :
+
+```bash
+sudo ./scripts/configure-storage.sh \
+  --format \
+  --device /dev/sda \
+  --mount-point /srv \
+  --owner eldayia
+```
+
+Une seule partition est recommandée. La séparation logique suffit :
+
+```text
+/srv/docker             configurations et données applicatives sauvegardées
+/srv/media/downloads    téléchargements torrent, exclus de la sauvegarde Restic
+```
+
+Deux partitions ne deviennent utiles que pour imposer une limite fixe aux
+téléchargements, utiliser deux systèmes de fichiers différents ou pouvoir
+reformater une zone indépendamment. En contrepartie, l’espace libre d’une
+partition ne peut pas être utilisé simplement par l’autre.
 
 ## Ajouter une stack
 

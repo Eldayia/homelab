@@ -18,7 +18,7 @@ Usage: sudo ./scripts/install-host.sh [options]
 Options:
   --activate-firewall  Active immédiatement le pare-feu nftables.
   --enable-backup      Active le timer Restic (secrets et montage requis).
-  --configure-storage  Lance l'assistant de montage d'un stockage USB.
+  --configure-storage  Lance l'assistant de préparation ou montage du stockage USB.
   -h, --help           Affiche cette aide.
 EOF
 }
