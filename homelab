@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${HOMELAB_CONFIG:-$REPO_ROOT/config/homelab.env}"
+
+if [[ -f "$CONFIG_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+  set +a
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: ./homelab COMMANDE [ARGUMENTS]
+
+Commandes quotidiennes:
+  init                         Crée config/homelab.env sans l'écraser.
+  check                        Vérifie scripts, secrets et fichiers Compose.
+  status                       Affiche l'état de toutes les stacks.
+  stack ACTION CIBLE...        Gère les stacks (list, sync, up, pull, restart, status).
+
+Préparation de l'hôte (sudo est demandé automatiquement):
+  setup host [OPTIONS]         Installe et configure Debian/Docker.
+  setup network [--apply]      Prévisualise ou applique le réseau statique.
+  setup storage [OPTIONS]      Prépare ou monte le SSD USB.
+  setup media [OPTIONS]        Monte les partages médias NFS.
+  setup backup                 Configure Restic et son timer systemd.
+
+Sauvegarde et reprise:
+  backup run                   Lance une sauvegarde via systemd.
+  backup status                Affiche le timer et le dernier état.
+  backup logs                  Affiche les 150 dernières lignes du journal.
+  restore [OPTIONS]            Restaure avec les garde-fous de restore-data.sh.
+
+Exemples:
+  ./homelab init
+  sudo ./homelab setup host
+  sudo ./homelab setup network --apply
+  ./homelab stack up infrastructure
+  ./homelab stack pull monitoring
+  ./homelab status
+EOF
+}
+
+as_root() {
+  if ((EUID == 0)); then
+    exec "$@"
+  fi
+  exec sudo -E "$@"
+}
+
+command_name="${1:-help}"
+shift || true
+
+case "$command_name" in
+  help|-h|--help)
+    usage
+    ;;
+  init)
+    target="$REPO_ROOT/config/homelab.env"
+    if [[ -e "$target" ]]; then
+      echo "Configuration déjà présente: $target"
+    else
+      install -m 0600 "$REPO_ROOT/config/homelab.env.example" "$target"
+      echo "Configuration créée: $target"
+      echo "Vérifie-la avant de préparer l'hôte."
+    fi
+    ;;
+  check)
+    exec "$REPO_ROOT/scripts/verify.sh" "$@"
+    ;;
+  status)
+    exec "$REPO_ROOT/scripts/deploy.sh" status --all "$@"
+    ;;
+  stack)
+    exec "$REPO_ROOT/scripts/deploy.sh" "$@"
+    ;;
+  setup)
+    setup_target="${1:-}"
+    [[ -n "$setup_target" ]] || { echo "Cible manquante: host, network, storage, media ou backup." >&2; exit 2; }
+    shift
+    case "$setup_target" in
+      host) as_root "$REPO_ROOT/scripts/install-host.sh" "$@" ;;
+      network) as_root "$REPO_ROOT/scripts/configure-network.sh" "$@" ;;
+      storage) as_root "$REPO_ROOT/scripts/configure-storage.sh" "$@" ;;
+      media) as_root "$REPO_ROOT/scripts/configure-media-storage.sh" "$@" ;;
+      backup) as_root "$REPO_ROOT/scripts/configure-backup.sh" "$@" ;;
+      *) echo "Cible inconnue: $setup_target" >&2; exit 2 ;;
+    esac
+    ;;
+  backup)
+    backup_action="${1:-status}"
+    case "$backup_action" in
+      run) as_root systemctl start docker-restic-backup.service ;;
+      status) as_root systemctl status docker-restic-backup.timer --no-pager ;;
+      logs) as_root journalctl -u docker-restic-backup.service -n 150 --no-pager ;;
+      *) echo "Action inconnue: $backup_action (run, status ou logs)." >&2; exit 2 ;;
+    esac
+    ;;
+  restore)
+    as_root "$REPO_ROOT/scripts/restore-data.sh" "$@"
+    ;;
+  *)
+    echo "Commande inconnue: $command_name" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

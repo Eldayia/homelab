@@ -10,12 +10,14 @@ MANIFEST="$REPO_ROOT/inventory/stacks.manifest"
 export DATA_ENCRYPTION_KEY="ci-validation-placeholder-at-least-32-chars"
 
 "$REPO_ROOT/scripts/check-secrets.sh"
+bash -n "$REPO_ROOT/homelab"
 
 while IFS= read -r script; do
   bash -n "$script"
 done < <(find "$REPO_ROOT/scripts" -maxdepth 1 -type f -name '*.sh' -print)
 
 if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck "$REPO_ROOT/homelab"
   find "$REPO_ROOT/scripts" -maxdepth 1 -type f -name '*.sh' -print0 | xargs -0 shellcheck
 else
   echo "shellcheck absent: contrôle avancé ignoré."

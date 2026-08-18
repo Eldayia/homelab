@@ -1,6 +1,7 @@
 # Secrets et variables locales
 **/.env
 !**/.env.example
+config/homelab.env
 **/secrets.json
 !**/secrets.json.example
 **/slskd.yml

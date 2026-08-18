@@ -1,5 +1,7 @@
 # Architecture
 
+[Documentation](README.md) · [Services](services.md) · [Exploitation](operations.md)
+
 ## Vue d’ensemble
 
 ```mermaid
@@ -54,7 +56,9 @@ Les fichiers `config/apt/raspi.sources`, `rpi-guard.nft` et
 ## Réseau
 
 Le réseau Docker externe `proxy` relie Nginx Proxy Manager aux interfaces web.
-Le script de déploiement le crée si nécessaire. Les services d’administration
+Le réseau externe `download` relie Qui aux composants de téléchargement qui en
+ont besoin. L’installation et le déploiement créent ces deux réseaux si
+nécessaire. Les services d’administration
 directe sont liés à l’adresse LAN paramétrée ; seuls HTTP/HTTPS et WireGuard
 sont destinés à une redirection depuis Internet.
 

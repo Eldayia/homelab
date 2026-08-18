@@ -1,78 +1,125 @@
-# Exploitation courante
+# Exploitation du homelab
 
-## Conteneurs
+[Documentation](README.md) · [Services](services.md) · [Reprise](disaster-recovery.md)
 
-```bash
-./scripts/deploy.sh status --all
-docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
-docker compose -f /srv/docker/monitoring/uptime-kuma/compose.yaml logs --tail=100
-```
-
-Pour mettre à jour une stack :
+## Tableau de bord en ligne de commande
 
 ```bash
-./scripts/deploy.sh pull nom-de-la-stack
-./scripts/deploy.sh up nom-de-la-stack
+cd ~/homelab
+./homelab status
 ```
 
-Une catégorie entière peut être ciblée de la même façon :
+Pour une vue Docker compacte :
 
 ```bash
-./scripts/deploy.sh pull monitoring
-./scripts/deploy.sh up monitoring
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 ```
 
-Le script synchronise les fichiers du dépôt sans écraser un `.env` existant.
-La destination exacte est
-`/srv/docker/<catégorie>/<stack>`. Toute nouvelle stack doit être ajoutée au
-manifeste.
+## Mettre à jour
 
-Pour redémarrer un seul service de la media-stack :
+Toujours télécharger, puis recréer la sélection :
 
 ```bash
-./scripts/deploy.sh restart qbittorrent
-./scripts/deploy.sh restart radarr
+git pull --ff-only
+./homelab check
+./homelab stack pull monitoring
+./homelab stack up monitoring
+./homelab status
 ```
 
-Le déploiement d’un downloader démarre Gluetun si nécessaire. Après une
-recréation manuelle de Gluetun, recréer les consommateurs de son namespace avec
-`./scripts/deploy.sh up download prowlarr flaresolverr`.
+Une cible peut être un service (`radarr`), une catégorie (`monitoring`) ou
+`--all`. Le déploiement conserve les `.env` et les données déjà présentes sous
+`/srv/docker`.
 
-## Sauvegarde
+> [!TIP]
+> Commencer par une catégorie limite l’impact d’une mise à jour. Utiliser
+> `--all` uniquement lorsque le contrôle global est souhaité.
 
-Le timer s'exécute à 04:30 avec un délai aléatoire maximal de 15 minutes.
+## Redémarrer ou recréer
 
 ```bash
-systemctl list-timers docker-restic-backup.timer
-sudo systemctl start docker-restic-backup.service
-sudo journalctl -u docker-restic-backup.service -n 150 --no-pager
+# Redémarrage simple, sans changement de définition
+./homelab stack restart radarr
+
+# Resynchronisation du Compose et recréation
+./homelab stack up radarr
 ```
 
-La rétention est de 7 sauvegardes quotidiennes, 5 hebdomadaires, 12 mensuelles
-et 3 annuelles. Le dimanche, Restic exécute `prune` et lit 10 % des données ; les
-autres jours, il vérifie la structure du dépôt.
-
-## Sécurité
+Les downloaders, Prowlarr et FlareSolverr partagent le réseau de Gluetun. Si
+Gluetun est recréé manuellement, recréer ses consommateurs :
 
 ```bash
-sudo sshd -t
-sudo nft -c -f /etc/nftables.d/rpi-guard.nft
-sudo nft list table inet rpi_guard
-sudo ss -lntup
-./scripts/check-secrets.sh
+./homelab stack up download prowlarr flaresolverr
 ```
 
-Garde NPM 81, Portainer 9443, Pi-hole 8085, wg-easy 51821, Cockpit 9090 et SSH
-hors des redirections publiques.
+## Lire les logs
+
+```bash
+docker logs --tail 100 radarr
+docker logs --since 30m --follow gluetun
+docker compose \
+  --project-directory /srv/docker/monitoring/uptime-kuma \
+  logs --tail 100
+```
+
+Diagnostic système :
+
+```bash
+systemctl --failed
+journalctl -p warning -b --no-pager
+df -h / /srv /mnt/nas/downloads /mnt/nas/multimedia
+```
+
+## Sauvegardes
+
+Le timer démarre vers 04:30, avec un délai aléatoire maximal de 15 minutes.
+
+```bash
+./homelab backup status
+sudo ./homelab backup run
+./homelab backup logs
+```
+
+Restic conserve 7 sauvegardes quotidiennes, 5 hebdomadaires, 12 mensuelles et
+3 annuelles. Le dimanche, il exécute aussi le nettoyage et un contrôle partiel
+des données.
 
 ## Contrôle après redémarrage
 
 ```bash
 systemctl --failed
 systemctl is-active docker rpi-firewall docker-restic-backup.timer
-docker ps --format '{{.Names}}|{{.Status}}'
-mountpoint /mnt/qnap-backups
-findmnt -T /mnt/nas/downloads -o SOURCE,TARGET,FSTYPE,OPTIONS
-findmnt -T /mnt/nas/multimedia -o SOURCE,TARGET,FSTYPE,OPTIONS
 findmnt /srv
+findmnt -T /mnt/nas/downloads
+findmnt -T /mnt/nas/multimedia
+findmnt -T /mnt/qnap-backups
+./homelab status
 ```
+
+État attendu : aucun service systemd en échec, `/srv` en `ext4`, les trois
+montages QNAP en `nfs4`, et les conteneurs déclarés dans le manifeste actifs.
+
+## Contrôles de sécurité
+
+```bash
+./homelab check
+sudo sshd -t
+sudo nft -c -f /etc/nftables.d/rpi-guard.nft
+sudo nft list table inet rpi_guard
+sudo ss -lntup
+```
+
+Les interfaces NPM `81`, Portainer `9443`, Pi-hole `8085`, wg-easy `51821`,
+Cockpit `9090` et SSH restent privées. Seuls HTTP/HTTPS et WireGuard sont
+destinés à une redirection depuis Internet.
+
+## Où intervenir ?
+
+| Symptôme | Premier contrôle |
+|---|---|
+| interface web inaccessible | `docker logs SERVICE` puis réseau `proxy` |
+| téléchargement sans réseau | santé et logs de `gluetun` |
+| import Radarr/Sonarr impossible | montages `/srv` et `/mnt/nas/*` |
+| sauvegarde en échec | `./homelab backup logs` puis `/mnt/qnap-backups` |
+| Compose refusé | `.env` de la stack et placeholders `CHANGE_ME` |
+| DNS local en panne | conteneur Pi-hole et occupation du port 53 |

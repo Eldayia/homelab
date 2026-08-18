@@ -1,0 +1,32 @@
+services:
+  qui:
+    image: ghcr.io/autobrr/qui:latest
+    container_name: qui
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      UMASK: ${UMASK:-002}
+      QUI__HOST: ${QUI_HOST:-0.0.0.0}
+      QUI__PORT: ${QUI_PORT:-7476}
+      QUI__LOG_LEVEL: ${QUI_LOG_LEVEL:-INFO}
+      QUI__DATABASE_ENGINE: ${QUI_DATABASE_ENGINE:-sqlite}
+      QUI__SESSION_SECRET: ${QUI_SESSION_SECRET}
+    volumes:
+      - ./config:/config
+      - /srv/media/downloads/torrents:/data/torrents
+      - /mnt/nas/multimedia:/data/media
+    expose:
+      - "${QUI_PORT:-7476}"
+    networks:
+      - proxy
+      - download
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy
+  download:
+    external: true
+    name: download

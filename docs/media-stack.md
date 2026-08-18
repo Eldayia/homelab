@@ -1,8 +1,10 @@
-# Media stack
+# Chaîne médias
+
+[Documentation](README.md) · [Services](services.md) · [Exploitation](operations.md)
 
 La media stack est découpée en un projet Compose par service. Chaque service
 peut ainsi être synchronisé, recréé ou redémarré seul. Elles font toutes partie
-de `deploy.sh up --all`; il faut donc terminer leurs réglages applicatifs,
+de `./homelab stack up --all`; il faut donc terminer leurs réglages applicatifs,
 montages et secrets avant le premier déploiement intégral.
 
 ## Stockage retenu
@@ -43,10 +45,10 @@ volontaire afin de conserver le fichier source pour le partage torrent.
 Monter d’abord le SSD et les deux exports QNAP, puis synchroniser les stacks :
 
 ```bash
-sudo ./scripts/configure-storage.sh
-sudo ./scripts/configure-media-storage.sh
+sudo ./homelab setup storage
+sudo ./homelab setup media
 
-./scripts/deploy.sh sync gluetun download media
+./homelab stack sync gluetun download media
 ```
 
 Compléter ensuite les fichiers `.env`, en particulier les identifiants de
@@ -56,17 +58,17 @@ ne doit être ajouté au dépôt.
 Le démarrage peut ensuite se faire service par service :
 
 ```bash
-./scripts/deploy.sh up gluetun
-./scripts/deploy.sh up qbittorrent
-./scripts/deploy.sh up sabnzbd
-./scripts/deploy.sh up radarr sonarr prowlarr
+./homelab stack up gluetun
+./homelab stack up qbittorrent
+./homelab stack up sabnzbd
+./homelab stack up radarr sonarr prowlarr
 ```
 
 Ou par catégorie :
 
 ```bash
-./scripts/deploy.sh up download
-./scripts/deploy.sh up media
+./homelab stack up download
+./homelab stack up media
 ```
 
 Les downloaders, Prowlarr et FlareSolverr partagent le réseau de Gluetun. Le
@@ -74,7 +76,7 @@ script démarre Gluetun automatiquement et attend qu’il soit sain. Après une
 recréation de Gluetun, recréer ces consommateurs avec :
 
 ```bash
-./scripts/deploy.sh up download prowlarr flaresolverr
+./homelab stack up download prowlarr flaresolverr
 ```
 
 ## Chemins à configurer dans les applications

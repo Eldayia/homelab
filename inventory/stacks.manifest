@@ -5,6 +5,7 @@ infrastructure|wg-easy|active|docker-compose.yml||||
 monitoring|homarr|active|compose.yaml||||
 monitoring|beszel|active|compose.yaml||||
 monitoring|dozzle|active|compose.yaml||||
+monitoring|glances|active|compose.yaml||||
 monitoring|freebox-dashboard|active|docker-compose.yml||||
 monitoring|portainer|active|docker-compose.yml||||
 monitoring|uptime-kuma|active|compose.yaml||||
@@ -13,6 +14,7 @@ download|qbittorrent|active|compose.yaml|||gluetun|/srv
 download|jdownloader|active|compose.yaml|||gluetun|/srv,/mnt/nas/downloads
 download|sabnzbd|active|compose.yaml|||gluetun|/srv,/mnt/nas/downloads
 download|slskd|active|compose.yaml|||gluetun|/srv,/mnt/nas/downloads,/mnt/nas/multimedia
+download|qui|active|compose.yaml||||/srv,/mnt/nas/multimedia
 media|prowlarr|active|compose.yaml|||gluetun|
 media|flaresolverr|active|compose.yaml|||gluetun|
 media|radarr|active|compose.yaml||||/srv,/mnt/nas/downloads,/mnt/nas/multimedia

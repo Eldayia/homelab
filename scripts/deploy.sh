@@ -202,8 +202,8 @@ dependency_is_ready() {
 
 wait_for_dependency() {
   local dependency="$1"
-  local attempt
-  for attempt in {1..60}; do
+  local _
+  for _ in {1..60}; do
     dependency_is_ready "$dependency" && return 0
     sleep 2
   done
@@ -259,7 +259,9 @@ assert_secrets_ready() {
 }
 
 if [[ "$ACTION" != "status" ]]; then
-  docker network inspect proxy >/dev/null 2>&1 || docker network create proxy >/dev/null
+  for network in proxy download; do
+    docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+  done
 fi
 
 FOUND=0

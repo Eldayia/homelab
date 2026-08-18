@@ -1,27 +1,48 @@
-# Inventaire audité les 7 et 8 août 2026
+# État observé de `rpi4` · 18 août 2026
 
-- Hôte : `rpi4`, `192.168.1.240/24`, arm64 ;
-- OS : Debian GNU/Linux 13.6 (Trixie) ;
-- noyau : `6.18.39+rpt-rpi-v8` ;
-- Docker Engine : `29.7.1` ;
-- Docker Compose : `5.4.0` ;
-- Python : `3.13.5` ;
-- Node.js : `20.19.2`, npm `9.2.0` ;
-- Git : `2.47.3` ;
-- Neovim : `0.10.4` ;
-- Restic : `0.18.0` ;
-- shell utilisateur : Zsh `5.9` ;
-- 27 conteneurs actifs dans 26 projets Compose ;
-- timer Restic actif, dernier lancement observé avec succès le 7 août 2026 à
-  04:32:55 ;
-- pare-feu `rpi-firewall.service` actif et activé au démarrage ;
-- partage CIFS : `//192.168.1.250/RaspberryBackups` monté sur
-  `/mnt/qnap-backups` avec SMB 3.1.1 et chiffrement (`seal`).
+Cet inventaire est un instantané de contrôle. Le manifeste et les fichiers
+Compose restent la source de vérité exécutable.
 
-Les révisions exactes des applications clonées figurent dans
-`inventory/stacks.manifest`.
+| Élément | État observé |
+|---|---|
+| système | Debian GNU/Linux 13 (Trixie), `aarch64` |
+| utilisateur | `eldayia` |
+| dépôt | `/home/eldayia/homelab`, révision `c88e48d` |
+| Docker Compose | `v5.5.0` |
+| stockage applicatif | SSD ext4 monté sur `/srv` |
+| données Compose | `/srv/docker/<catégorie>/<service>` |
+| sauvegarde | NFSv4.1 sur `/mnt/qnap-backups`, timer actif |
+| médias | NFSv4.1 sur `/mnt/nas/downloads` et `/mnt/nas/multimedia` |
+| Compose | 25 projets déployés, dont 24 lancés |
+| conteneurs | 26 actifs ; tinyMediaManager était synchronisé mais non lancé |
 
-Le 8 août, l'audit a été actualisé après le durcissement de Kinklist, le passage
-de wg-easy en réseau hôte, le raccordement de Pi-hole au réseau `proxy`,
-l'activation de `CONTAINER_PRESERVE_CONFIG` pour Foundry et l'installation de
-miniPaint `4.14.3` en build ARM64 local.
+## Écarts corrigés dans le dépôt
+
+L’audit SSH a trouvé deux projets actifs mais absents du Git local :
+
+- `monitoring/glances` ;
+- `download/qui`.
+
+Leurs définitions non secrètes ont été intégrées aux stacks et au manifeste.
+Le réseau Docker externe `download`, utilisé par Qui, est désormais préparé
+par l’installation et le déploiement.
+
+## Arborescence validée
+
+```text
+/srv/
+├── docker/
+│   ├── backup/
+│   ├── infrastructure/
+│   ├── monitoring/
+│   ├── download/
+│   └── media/
+└── media/downloads/
+    ├── jdownloader/
+    ├── slskd/
+    ├── torrents/
+    └── usenet/
+```
+
+Les anciennes mentions CIFS, les services historiques hors manifeste et les
+versions devenues obsolètes ont été retirés de cet audit.

@@ -5,4 +5,5 @@
 *.nft text eol=lf
 *.service text eol=lf
 *.timer text eol=lf
+homelab text eol=lf
 

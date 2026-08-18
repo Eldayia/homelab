@@ -1,0 +1,35 @@
+services:
+  glances:
+    image: ${GLANCES_IMAGE:-nicolargo/glances:latest-full}
+    container_name: glances
+    restart: unless-stopped
+    pid: host
+    read_only: true
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      GLANCES_OPT: ${GLANCES_OPT:--w}
+      PYTHONPYCACHEPREFIX: /tmp/py_caches
+    volumes:
+      - /:/rootfs:ro
+      - /etc/os-release:/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./glances.conf:/glances/conf/glances.conf:ro
+    expose:
+      - "61208"
+    networks:
+      - proxy
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:61208/api/4/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

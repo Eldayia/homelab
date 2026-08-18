@@ -1,5 +1,7 @@
 # Secrets
 
+[Documentation](README.md) · [Exploitation](operations.md) · [Reprise](disaster-recovery.md)
+
 ## Principes
 
 - aucun secret en clair dans Git, même si le dépôt est privé ;
@@ -29,9 +31,11 @@ openssl rand -hex 32
 | Beszel | `BESZEL_TOKEN`, `BESZEL_KEY` fournis par le hub |
 | Homarr | `SECRET_ENCRYPTION_KEY` |
 | Pi-hole | `PIHOLE_PASSWORD` |
+| Gluetun | `OPENVPN_USER`, `OPENVPN_PASSWORD` |
+| Qui | `QUI_SESSION_SECRET` |
+| tinyMediaManager | `TMM_PASSWORD` |
 
-Les futures variables sensibles de la media stack seront documentées lors de
-l’intégration de son Compose.
+Les secrets vivent uniquement dans les `.env` déployés sous `/srv/docker`.
 
 ## Fichiers root hors dépôt
 

@@ -1,45 +1,77 @@
 # Catalogue des services
 
-Le fichier `inventory/stacks.manifest` est la source de vérité utilisée par le
-script de déploiement. Cette page décrit le rôle et l’exposition attendue des
-services, sans contenir de secret ni de configuration Nginx Proxy Manager.
+[Documentation](README.md) · [Architecture](architecture.md) · [Exploitation](operations.md)
+
+Le manifeste déclare 25 projets Compose. Lors de l’audit, 24 étaient lancés
+pour 26 conteneurs ; tinyMediaManager était synchronisé mais non lancé. Le manifeste
+reste la liste exécutable de référence :
+[`inventory/stacks.manifest`](../inventory/stacks.manifest).
 
 ## Infrastructure
 
-| Stack | Rôle | Accès attendu |
+| Service | Rôle | Exposition |
 |---|---|---|
-| `nginx-proxy-manager` | reverse proxy et certificats TLS | 80/443 publics, administration 81 sur le LAN |
-| `pihole` | DNS et filtrage du LAN | TCP/UDP 53, administration 8085 sur le LAN |
-| `wg-easy` | accès WireGuard au homelab | UDP 51820 public, administration 51821 sur le LAN |
+| Nginx Proxy Manager | reverse proxy et TLS | `80`, `443`, admin LAN `81` |
+| Pi-hole | DNS local et filtrage | DNS `53`, admin LAN `8085` |
+| wg-easy | accès distant WireGuard | UDP `51820`, admin LAN `51821` |
 
 ## Monitoring
 
-| Stack | Rôle | Accès attendu |
+| Service | Rôle |
+|---|---|
+| Homarr | portail du homelab |
+| Beszel | métriques hôte et conteneurs |
+| Glances | vue système détaillée |
+| Uptime Kuma | disponibilité et alertes |
+| Dozzle | consultation des logs |
+| Portainer | administration Docker |
+| Freebox Dashboard | métriques de la Freebox |
+| Gluetun | passerelle VPN et kill switch des téléchargements |
+
+## Téléchargement
+
+| Service | Usage | Réseau |
 |---|---|---|
-| `uptime-kuma` | disponibilité et alertes | via `proxy` |
-| `portainer` | administration Docker | HTTPS 9443 sur le LAN |
-| `beszel` | métriques de l’hôte et des conteneurs | via `proxy` |
-| `dozzle` | consultation des logs Docker | via `proxy` |
-| `freebox-dashboard` | supervision de la Freebox | port LAN configurable |
-| `homarr` | portail des services | via `proxy` |
-| `gluetun` | passerelle VPN et kill switch | via `proxy`, sans port hôte publié |
+| qBittorrent | torrents | namespace Gluetun |
+| SABnzbd | Usenet | namespace Gluetun |
+| JDownloader | téléchargements directs | namespace Gluetun |
+| slskd | client Soulseek | namespace Gluetun |
+| Qui | gestion avancée de qBittorrent | réseaux `proxy` et `download` |
 
-## Media stack
+## Médias
 
-| Groupe | Stacks | Accès attendu |
-|---|---|---|
-| téléchargement | `qbittorrent`, `sabnzbd`, `jdownloader`, `slskd` | namespace réseau de Gluetun |
-| indexation | `prowlarr`, `flaresolverr` | namespace réseau de Gluetun |
-| automatisation | `radarr`, `sonarr`, `lidarr` | via `proxy` |
-| enrichissement | `bazarr`, `lazylibrarian`, `seerr`, `tinymediamanager` | via `proxy` |
+| Service | Rôle |
+|---|---|
+| Prowlarr | indexeurs |
+| FlareSolverr | résolution de protections web |
+| Radarr / Sonarr | films et séries |
+| Lidarr | musique |
+| Bazarr | sous-titres |
+| LazyLibrarian | livres |
+| Seerr | demandes de contenus |
+| tinyMediaManager | métadonnées et organisation |
 
-Ces stacks peuvent être déployées séparément et font aussi partie de `--all`.
-Le détail des chemins, prérequis et flux est dans [Media stack](media-stack.md).
+## Piloter une sélection
 
-## Convention réseau
+```bash
+./homelab stack list
+./homelab stack up pihole
+./homelab stack up infrastructure
+./homelab stack status --all
+```
 
-Les interfaces web destinées au reverse proxy rejoignent le réseau Docker
-externe `proxy` et utilisent de préférence `expose`. Les ports publiés sur
-l’hôte doivent être liés à l’adresse LAN, sauf les points d’entrée explicitement
-publics. Les valeurs propres à l’hôte vivent dans les `.env`, jamais directement
-dans de nouveaux fichiers Compose.
+## Ajouter un service
+
+1. Créer `stacks/<catégorie>/<nom>/compose.yaml`.
+2. Ajouter `.env.example` avec des valeurs non sensibles et `CHANGE_ME` pour
+   les secrets obligatoires.
+3. Utiliser uniquement des bind mounts pour les données persistantes.
+4. Déclarer la stack dans `inventory/stacks.manifest` avec ses dépendances et
+   montages requis.
+5. Lancer `./homelab check`.
+6. Synchroniser avec `./homelab stack sync <nom>`, compléter le `.env` sous
+   `/srv/docker`, puis lancer `./homelab stack up <nom>`.
+
+Une stack raccordée au reverse proxy rejoint le réseau externe `proxy`. Un
+downloader partage le namespace de `gluetun` et le déclare comme dépendance
+dans le manifeste.

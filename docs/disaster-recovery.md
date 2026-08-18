@@ -1,5 +1,7 @@
 # Reprise après sinistre
 
+[Documentation](README.md) · [Exploitation](operations.md) · [Secrets](secrets.md)
+
 Cette procédure vise un hôte neuf ou de remplacement. Elle ne doit pas écraser
 un `/srv/docker` existant sans sauvegarde préalable.
 
@@ -17,7 +19,8 @@ La clé publique actuellement attendue est versionnée dans
 
 ```bash
 cd ~/homelab
-sudo ./scripts/install-host.sh
+./homelab init
+sudo ./homelab setup host
 ```
 
 Le script installe les paquets, Docker, les dotfiles, les fichiers SSH, nftables
@@ -30,7 +33,7 @@ Si un SSD USB contient les médias ou d’autres données persistantes, monte-le
 avant de déployer les stacks qui en dépendent :
 
 ```bash
-sudo ./scripts/configure-storage.sh
+sudo ./homelab setup storage
 findmnt /srv
 ```
 
@@ -43,8 +46,8 @@ disque à effacer.
 Depuis une console locale, ou en gardant une deuxième session SSH ouverte :
 
 ```bash
-sudo ./scripts/configure-network.sh
-sudo ./scripts/configure-network.sh --apply
+sudo ./homelab setup network
+sudo ./homelab setup network --apply
 ```
 
 La première commande affiche seulement le changement prévu. Vérifie ensuite :
@@ -74,7 +77,7 @@ sudo nft delete table inet rpi_guard
 ## 5. Monter le QNAP et ouvrir Restic
 
 ```bash
-sudo QNAP_EXPORT=/RaspberryBackups ./scripts/configure-backup.sh
+sudo ./homelab setup backup
 ```
 
 Le QNAP doit au préalable exposer le dossier en NFS et autoriser l’adresse IP
@@ -100,14 +103,14 @@ sudo RESTIC_PASSWORD_FILE=/root/.config/restic/rpi-password \
 Sur l'hôte neuf, avant de lancer les stacks :
 
 ```bash
-sudo ./scripts/restore-data.sh --snapshot latest --confirm
+sudo ./homelab restore --snapshot latest --confirm
 ```
 
 Le script refuse par défaut de restaurer si un conteneur tourne. Pour inspecter
 sans écrire dans `/`, restaure d'abord dans un dossier temporaire :
 
 ```bash
-sudo ./scripts/restore-data.sh \
+sudo ./homelab restore \
   --snapshot latest \
   --target /srv/restic-inspection \
   --confirm
@@ -118,8 +121,8 @@ sudo ./scripts/restore-data.sh \
 Les fichiers de configuration sont synchronisés par catégorie ou en totalité :
 
 ```bash
-./scripts/deploy.sh sync --all
-./scripts/deploy.sh up --all
+./homelab stack sync --all
+./homelab stack up --all
 ```
 
 Si aucune sauvegarde n'est disponible, `sync --all` crée les `.env` depuis les
@@ -132,8 +135,8 @@ mot de passe.
 ## 8. Vérifications finales
 
 ```bash
-./scripts/verify.sh
-./scripts/deploy.sh status --all
+./homelab check
+./homelab status
 sudo systemctl --failed
 sudo systemctl list-timers docker-restic-backup.timer
 sudo nft list table inet rpi_guard

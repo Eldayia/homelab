@@ -42,6 +42,8 @@ if ((EUID != 0)); then
   exec sudo -E bash "$0" "${ORIGINAL_ARGS[@]}"
 fi
 
+chmod 0755 "$REPO_ROOT/homelab"
+
 if [[ ! -r /etc/os-release ]]; then
   echo "Impossible d'identifier le système." >&2
   exit 1
@@ -170,7 +172,9 @@ systemctl daemon-reload
 systemctl enable --now docker.service ssh.service cockpit.socket
 systemctl reload ssh.service
 
-docker network inspect proxy >/dev/null 2>&1 || docker network create proxy >/dev/null
+for network in proxy download; do
+  docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+done
 
 if ((ACTIVATE_FIREWALL)); then
   systemctl enable --now rpi-firewall.service
